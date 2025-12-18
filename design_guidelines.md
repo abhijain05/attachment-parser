@@ -1,130 +1,192 @@
-# Design Guidelines: Business Knowledge AI Platform
+# Design Guidelines: Knowledge AI Platform
 
 ## Design Approach
 
-**Selected Approach:** Design System-Based (Material Design foundation)  
-**References:** Linear (modern productivity aesthetics), Notion (content-focused clarity), Stripe (enterprise polish)
+**Selected Approach:** Hybrid - Material Design foundation + Notion clarity + Linear premium aesthetics
 
-**Rationale:** This enterprise SaaS platform prioritizes functionality, data clarity, and professional aesthetics. Users need efficient workflows for knowledge management, not visual spectacle. The design should feel modern, trustworthy, and purposeful.
+**Rationale:** Enterprise SaaS platform with premium visual identity. Gradients provide brand differentiation while maintaining functional clarity. Mobile-first ensures accessibility across devices.
 
----
-
-## Core Design Principles
-
-1. **Clarity Over Decoration** - Information hierarchy is paramount
-2. **Efficiency First** - Minimize clicks, maximize productivity
-3. **Professional Trust** - Enterprise-grade visual language
-4. **Responsive Data Display** - Dense information presented elegantly
+**Core Principles:**
+- Gradients as accent, not distraction
+- Data clarity through contrast
+- Premium polish with functional efficiency
+- Touch-first interactions
 
 ---
 
-## Typography System
+## Color System
 
-**Font Stack:** Inter (Google Fonts) for all text  
-- **Display/Headings:** 600-700 weight, tight letter-spacing (-0.02em)
-- **Body Text:** 400 weight, 1.6 line-height for readability
-- **Labels/Metadata:** 500 weight, uppercase 11px with tracking (0.05em)
-- **Code/Technical:** 'JetBrains Mono' for API endpoints, script previews
+### Light Mode Gradients
+- **Primary Gradient:** `from-purple-500 via-blue-500 to-blue-600` (buttons, headers, accents)
+- **Subtle Gradient:** `from-purple-50 via-blue-50 to-teal-50` (backgrounds, cards)
+- **Accent Gradient:** `from-teal-400 to-blue-500` (stats, highlights)
 
-**Size Scale:**
-- Hero/Dashboard Title: text-3xl to text-4xl
-- Section Headers: text-xl to text-2xl
-- Card Titles: text-lg
-- Body: text-base
-- Metadata/Labels: text-sm
-- Micro-copy: text-xs
+### Dark Mode Gradients
+- **Primary Gradient:** `from-purple-900 via-blue-900 to-teal-900` (buttons, headers)
+- **Deep Gradient:** `from-gray-950 via-purple-950 to-blue-950` (backgrounds)
+- **Bright Accent:** `from-purple-600 via-blue-600 to-teal-500` (interactive elements)
+
+### Neutral Palette
+- **Light Backgrounds:** White, gray-50, gray-100
+- **Dark Backgrounds:** gray-950, gray-900, gray-800
+- **Text:** gray-900 (light mode), gray-50 (dark mode)
+- **Borders:** gray-200 (light), gray-700 (dark)
+
+### Semantic Colors
+- **Success:** green-500 gradient to teal-500
+- **Warning:** amber-500 to orange-500
+- **Error:** red-500 to pink-600
+- **Info:** blue-500 to purple-500
 
 ---
 
-## Layout System
+## Typography
 
-**Spacing Primitives:** Use Tailwind units of **2, 4, 6, 8, 12, 16**  
-- Tight spacing: p-2, gap-2 (within components)
-- Standard spacing: p-4, gap-4 (cards, form fields)
-- Section spacing: p-8, py-12 (page sections)
-- Large spacing: p-16 (dashboard margins)
+**Fonts:** Inter (primary), JetBrains Mono (code)
 
-**Grid System:**
-- Dashboard: Sidebar (240px fixed) + Main Content (flex-1)
-- Content Max-Width: max-w-7xl for wide layouts, max-w-4xl for forms
-- Card Grids: grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+**Scale:**
+- **Hero:** text-4xl md:text-5xl, font-bold, gradient text effect
+- **Section Headers:** text-2xl md:text-3xl, font-semibold
+- **Card Titles:** text-lg font-medium
+- **Body:** text-base, leading-relaxed
+- **Labels:** text-sm font-medium, tracking-wide
+- **Metadata:** text-xs opacity-70
+
+---
+
+## Spacing System
+
+**Primitives:** 2, 4, 6, 8, 12, 16, 20, 24
+
+**Mobile Touch Targets:** Minimum h-12 for buttons, h-16 for nav items  
+**Card Padding:** p-6 mobile, p-8 desktop  
+**Section Spacing:** py-12 mobile, py-20 desktop  
+**Grid Gaps:** gap-4 mobile, gap-6 desktop
+
+---
+
+## Layout Architecture
+
+### Desktop
+- **Sidebar:** w-64, gradient background, fixed position
+- **Top Bar:** h-16, glass morphism effect, sticky
+- **Content:** max-w-7xl mx-auto, px-6
+
+### Mobile (< 768px)
+- **Bottom Navigation:** Fixed h-16, 4-5 icons, gradient background, active state glow
+- **No Sidebar:** Full-width stacked layout
+- **Cards:** Full-width with horizontal scroll for grids
 
 ---
 
 ## Component Library
 
 ### Navigation
-- **Top Bar:** Fixed header with project switcher, search, user menu (h-16)
-- **Sidebar:** Collapsible navigation, icon + label pattern, active state highlighting
-- **Breadcrumbs:** For nested navigation (Projects > Documents > Details)
+**Desktop Top Bar:** Logo + Search + Project Switcher + User Menu  
+**Desktop Sidebar:** Nested nav with icons, gradient hover states  
+**Mobile Bottom Nav:** Home, Knowledge, Chat, Analytics, Profile (icons with labels)
+
+### Hero Section
+**Marketing/Dashboard Hero:**
+- Full-width gradient background (primary gradient with 60% opacity overlay)
+- Large heading with gradient text effect
+- Subheading text-xl
+- Primary CTA button with blurred background treatment
+- Background image: Abstract tech/AI visualization (modern, soft-focus)
+- Height: 60vh mobile, 70vh desktop
+
+### Cards
+**Standard Card:** Rounded-2xl, gradient border (1px), glass effect background, shadow-lg  
+**Stat Card:** Large number (text-5xl) with gradient color, icon top-right, subtitle below  
+**Knowledge Card:** Document icon, title, metadata row (date, size, type), gradient tag
+
+### Buttons
+**Primary:** Gradient background (primary), text-white, rounded-xl, px-6 py-3, shadow-md  
+**Secondary:** Gradient border, transparent background, gradient text  
+**Icon Buttons:** w-12 h-12 circle, gradient on hover  
+**Floating Action (Mobile):** Fixed bottom-right, gradient circle, shadow-2xl
 
 ### Data Display
-- **Data Tables:** Striped rows, sortable headers, row hover states, pagination
-- **Cards:** Rounded corners (rounded-lg), subtle shadow, clear hierarchy
-- **Stats Widgets:** Large numbers (text-4xl font-bold), label beneath (text-sm opacity-70)
-- **Knowledge List:** Document cards with metadata (file type icon, date, size, tags)
+**Tables:** 
+- Headers with subtle gradient background
+- Alternating row backgrounds (gray-50/transparent)
+- Rounded-lg outer container
+- Mobile: Horizontal scroll or card transformation
 
-### Forms & Inputs
-- **File Upload Zone:** Dashed border dropzone, drag-and-drop visual feedback, upload progress bars
-- **Text Inputs:** Clean borders, focus ring (ring-2), helper text beneath
-- **Select Menus:** Dropdown with search for model selection
-- **Toggle Switches:** For chatbot features on/off
+**Charts:** Gradient line fills, colored data points, glass-effect backgrounds
+
+### Forms
+**Inputs:** rounded-lg, ring-2 focus state with gradient color, h-12 minimum  
+**File Upload:** Dashed gradient border, dropzone h-48, drag feedback glow  
+**Selects:** Custom dropdown with gradient hover states  
+**Toggles:** Gradient active state, larger touch target (w-14 h-8)
 
 ### Chatbot Builder
-- **Split Layout:** Left side configuration panel, right side live preview (50/50 split on desktop)
-- **Color Pickers:** Inline color swatches with hex input
-- **Preview Window:** Simulated browser frame showing chatbot overlay
+**Split View (Desktop):** Config panel (gradient sidebar) + Preview (glass frame)  
+**Mobile:** Tabbed interface, full-screen preview toggle  
+**Color Picker:** Gradient swatches, hex input  
+**Live Preview:** Simulated browser with gradient chatbot bubble
 
 ### Analytics Dashboard
-- **Metric Cards:** Grid of 4 cards (queries, tokens, projects, active users)
-- **Charts:** Line graphs for usage trends, bar charts for top sources
-- **Table:** Recent queries with timestamp, question, sources used
+**Metric Grid:** 2x2 mobile, 4x1 desktop, gradient stat cards  
+**Charts:** Line graphs with gradient fills, interactive tooltips  
+**Activity Feed:** Timeline with gradient connectors, card-style entries
 
-### MCP Server Section
-- **Endpoint Cards:** Monospace font for API paths, copy button, status indicator (green dot)
-- **Request/Response Panels:** Code blocks with syntax highlighting
-
-### Embeddable Script
-- **Code Preview:** Monaco-style editor (readonly), syntax highlighting
-- **Copy Button:** Prominent "Copy Script" CTA
-- **Instructions:** Step-by-step setup guide with numbered list
+### Empty States
+**Illustration:** Gradient-colored line art (upload cloud, chart, document)  
+**Text:** Encouraging message + gradient CTA button  
+**Container:** Centered, py-20, subtle gradient background
 
 ---
 
-## Interaction Patterns
+## Images
 
-- **Loading States:** Skeleton screens for data tables, spinner for actions
-- **Empty States:** Illustration + helpful text + primary CTA ("Upload Your First Document")
-- **Success Feedback:** Toast notifications (top-right), green checkmark icons
-- **Error Handling:** Inline validation messages (red text beneath inputs)
-
----
-
-## Image Strategy
-
-**No decorative imagery.** This is a utility application.
-
-**Functional Images:**
-- **Empty State Illustrations:** Simple line-art SVGs (via unDraw or similar libraries)
-- **File Type Icons:** Use Heroicons document variants for PDF/TXT/MD
-- **User Avatars:** Circular with initials fallback
+**Hero Background:** Modern abstract tech visualization - flowing gradients, neural networks, or particle effects (soft focus, 40% opacity overlay)  
+**Empty States:** Gradient-style illustrations (unDraw or similar with custom colors)  
+**Document Icons:** Heroicons with gradient color variants  
+**User Avatars:** Circular with gradient borders
 
 ---
 
-## Accessibility & Consistency
+## Mobile-Specific Patterns
 
-- Form labels always visible (no placeholder-only inputs)
-- Focus states: ring-2 ring-offset-2 on all interactive elements
-- ARIA labels for icon-only buttons
-- Keyboard navigation support throughout
-- Consistent button heights (h-10 for primary actions)
+**Bottom Navigation:**
+- 5 main sections with icons + labels
+- Active state: icon scale + gradient glow
+- Subtle gradient background
+
+**Touch Interactions:**
+- All buttons minimum 44x44px
+- Swipe gestures for card deletion
+- Pull-to-refresh with gradient loader
+- Bottom sheets for filters/actions
+
+**Card Layouts:**
+- Full-width cards with gap-4
+- Horizontal scroll for secondary content
+- Expansion panels for detail views
 
 ---
 
-## Key UI Patterns by Section
+## Interaction & Feedback
 
-**Dashboard Home:** Stats cards grid → Recent activity table → Quick actions  
-**Knowledge Library:** Search/filter bar → Document grid with metadata → Batch actions  
-**Chatbot Builder:** Tabbed configuration (Appearance, Behavior, Settings) → Live preview panel  
-**Analytics:** Date range selector → Metric cards → Charts → Detailed logs table  
-**Settings:** Sidebar sub-nav → Form sections with clear headers → Save/Cancel actions sticky at bottom
+**Loading:** Skeleton screens with gradient shimmer effect  
+**Success:** Toast with gradient background, slide-in from top  
+**Errors:** Inline with gradient error icon, red-to-pink gradient text  
+**Progress:** Gradient progress bars, circular loaders with gradient stroke
+
+---
+
+## Accessibility
+
+- 4.5:1 contrast ratio maintained even with gradients
+- Focus rings: 3px gradient border on focused elements
+- Touch targets: 48x48px minimum
+- ARIA labels for all icon-only buttons
+- Screen reader announcements for gradient decorative elements hidden
+
+---
+
+## Dark Mode Strategy
+
+Auto-switch based on system preference. All gradients use dark variants. Increase shadow intensity for depth. Reduce gradient opacity to prevent eye strain.

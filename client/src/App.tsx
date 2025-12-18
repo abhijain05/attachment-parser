@@ -28,10 +28,10 @@ function AuthenticatedLayout() {
 
   return (
     <SidebarProvider style={sidebarStyle}>
-      <div className="flex h-screen w-full">
+      <div className="flex h-screen w-full bg-gradient-to-br from-background via-purple-50/50 dark:via-purple-950/30 to-background">
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex h-14 items-center justify-between gap-4 border-b px-4 flex-shrink-0">
+          <header className="flex h-14 md:h-16 items-center justify-between gap-4 border-b bg-background/80 backdrop-blur-sm px-3 md:px-4 flex-shrink-0">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <ThemeToggle />
           </header>

@@ -60,15 +60,15 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 max-w-7xl mx-auto w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             Welcome back! Here's an overview of your knowledge platform.
           </p>
         </div>
-        <Button asChild data-testid="button-new-project">
+        <Button asChild data-testid="button-new-project" className="w-full sm:w-auto">
           <Link href="/projects/new">
             <Plus className="h-4 w-4 mr-2" />
             New Project
@@ -76,7 +76,7 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {statCards.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
@@ -103,12 +103,12 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <div>
-              <CardTitle className="text-lg">Recent Projects</CardTitle>
-              <CardDescription>Your most recently updated knowledge bases</CardDescription>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <Card className="overflow-hidden hover-elevate transition-all">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+            <div className="min-w-0">
+              <CardTitle className="text-base sm:text-lg">Recent Projects</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Your most recently updated knowledge bases</CardDescription>
             </div>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/projects">
@@ -181,7 +181,7 @@ export default function Dashboard() {
             <CardDescription>Common tasks to manage your knowledge bases</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               <Button 
                 variant="outline" 
                 className="justify-start h-auto py-4 px-4" 

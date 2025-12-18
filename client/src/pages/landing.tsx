@@ -57,18 +57,18 @@ const benefits = [
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-purple-50/50 dark:via-purple-950/30 to-background">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between gap-4 px-4 mx-auto max-w-7xl">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div className="container flex h-14 sm:h-16 items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 mx-auto max-w-7xl">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 text-white">
               <Server className="h-5 w-5" />
             </div>
-            <span className="text-lg font-semibold tracking-tight">Knowledge AI</span>
+            <span className="text-base sm:text-lg font-semibold tracking-tight">Knowledge AI</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <ThemeToggle />
-            <Button asChild data-testid="button-login">
+            <Button asChild data-testid="button-login" size="sm" className="text-xs sm:text-sm">
               <a href="/api/login">Sign In</a>
             </Button>
           </div>
@@ -76,32 +76,30 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className="py-20 md:py-32">
+        <section className="py-12 sm:py-20 md:py-32">
           <div className="container px-4 mx-auto max-w-7xl">
-            <div className="flex flex-col items-center text-center gap-8 max-w-3xl mx-auto">
-              <div className="inline-flex items-center gap-2 rounded-full border bg-muted/50 px-4 py-1.5 text-sm">
-                <Zap className="h-3.5 w-3.5 text-primary" />
+            <div className="flex flex-col items-center text-center gap-6 sm:gap-8 max-w-3xl mx-auto">
+              <div className="inline-flex items-center gap-2 rounded-full border bg-purple-100/50 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs sm:text-sm">
+                <Zap className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
                 <span className="text-muted-foreground">Enterprise-ready AI knowledge platform</span>
               </div>
               
-              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-                Turn your business knowledge into an{" "}
-                <span className="text-primary">AI assistant</span>
+              <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight bg-gradient-to-r from-purple-600 via-blue-600 to-blue-700 dark:from-purple-400 dark:via-blue-400 dark:to-blue-500 bg-clip-text text-transparent">
+                Turn your business knowledge into an AI assistant
               </h1>
               
-              <p className="text-lg text-muted-foreground max-w-2xl">
-                Upload your documents, create governed AI that answers only from approved sources, 
-                and embed a customizable chatbot on any website. All with full control and transparency.
+              <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl">
+                Upload your documents, create governed AI that answers only from approved sources, and embed a customizable chatbot on any website.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" asChild data-testid="button-get-started">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
+                <Button size="lg" asChild data-testid="button-get-started" className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
                   <a href="/api/login">
                     Get Started
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </a>
                 </Button>
-                <Button size="lg" variant="outline" data-testid="button-learn-more">
+                <Button size="lg" variant="outline" data-testid="button-learn-more" className="w-full sm:w-auto">
                   Learn More
                 </Button>
               </div>
@@ -109,27 +107,26 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="py-20 bg-muted/30">
+        <section className="py-12 sm:py-20 bg-gradient-to-b from-purple-50/30 dark:from-purple-950/20 to-transparent">
           <div className="container px-4 mx-auto max-w-7xl">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+            <div className="text-center mb-10 sm:mb-16">
+              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight mb-3 sm:mb-4">
                 Everything you need to build AI-powered knowledge bases
               </h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                A complete platform for ingesting, managing, and deploying business knowledge 
-                through AI assistants that never hallucinate.
+              <p className="text-muted-foreground text-sm sm:text-lg max-w-2xl mx-auto">
+                A complete platform for ingesting, managing, and deploying business knowledge through AI assistants.
               </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {features.map((feature) => (
-                <Card key={feature.title} className="border-border/50">
+                <Card key={feature.title} className="border-purple-200/50 dark:border-purple-900/30 hover-elevate transition-all">
                   <CardHeader>
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
-                      <feature.icon className="h-5 w-5 text-primary" />
+                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center mb-3">
+                      <feature.icon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
-                    <CardTitle className="text-lg">{feature.title}</CardTitle>
-                    <CardDescription className="text-sm leading-relaxed">
+                    <CardTitle className="text-base sm:text-lg">{feature.title}</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm leading-relaxed">
                       {feature.description}
                     </CardDescription>
                   </CardHeader>
