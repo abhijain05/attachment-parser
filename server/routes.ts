@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
 import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -25,6 +26,11 @@ const upload = multer({
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = process.env.OPENAI_API_KEY 
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+// Initialize Gemini client
+const gemini = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   : null;
 
 // Helper to get user ID from session
@@ -407,16 +413,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        if (openai) {
-          try {
-            const chatbotConfig = await storage.getChatbotConfig(projectId);
-            const tone = chatbotConfig?.tone || "professional";
-            
-            const systemPrompt = `You are a helpful AI assistant. Answer questions ONLY based on the provided context. 
+        const chatbotConfig = await storage.getChatbotConfig(projectId);
+        const tone = chatbotConfig?.tone || "professional";
+        const aiProvider = chatbotConfig?.aiProvider || "openai";
+        
+        const systemPrompt = `You are a helpful AI assistant. Answer questions ONLY based on the provided context. 
 If the answer is not in the context, say "I don't have information about that in my knowledge base."
 Be ${tone} in your responses.
 Do not make up information. Always ground your answers in the provided sources.`;
 
+        if (aiProvider === "gemini" && gemini) {
+          try {
+            const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const fullPrompt = `${systemPrompt}\n\nContext:\n${context}\n\nQuestion: ${message}`;
+            const result = await model.generateContent(fullPrompt);
+            responseText = result.response.text() || "I couldn't generate a response.";
+            tokensUsed = 0; // Gemini doesn't expose token count in same way
+          } catch (err) {
+            console.error("Gemini error:", err);
+            responseText = "I apologize, but I'm having trouble processing your request. Please try again.";
+          }
+        } else if (openai) {
+          try {
             const response = await openai.chat.completions.create({
               model: "gpt-5",
               messages: [
@@ -433,7 +451,7 @@ Do not make up information. Always ground your answers in the provided sources.`
             responseText = "I apologize, but I'm having trouble processing your request. Please try again.";
           }
         } else {
-          // Fallback when OpenAI is not configured
+          // Fallback when neither is configured
           responseText = `Based on your knowledge base, here's what I found:\n\n${relevantChunks[0].content.slice(0, 500)}...`;
         }
       } else {
@@ -637,21 +655,39 @@ Do not make up information. Always ground your answers in the provided sources.`
           });
         }
 
-        if (openai) {
-          const context = relevantChunks.map((c) => c.content).join("\n\n");
-          const chatbotConfig = await storage.getChatbotConfig(projectId);
-          const response = await openai.chat.completions.create({
-            model: "gpt-5",
-            messages: [
-              {
-                role: "system",
-                content: `You are ${chatbotConfig?.botName || "AI Assistant"}. Answer only from the provided context. Be ${chatbotConfig?.tone || "professional"}.`,
-              },
-              { role: "user", content: `Context:\n${context}\n\nQuestion: ${message}` },
-            ],
-            max_completion_tokens: 512,
-          });
-          responseText = response.choices[0].message.content || "";
+        const context = relevantChunks.map((c) => c.content).join("\n\n");
+        const chatbotConfig = await storage.getChatbotConfig(projectId);
+        const aiProvider = chatbotConfig?.aiProvider || "openai";
+
+        if (aiProvider === "gemini" && gemini) {
+          try {
+            const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const systemMsg = `You are ${chatbotConfig?.botName || "AI Assistant"}. Answer only from the provided context. Be ${chatbotConfig?.tone || "professional"}.`;
+            const fullPrompt = `${systemMsg}\n\nContext:\n${context}\n\nQuestion: ${message}`;
+            const result = await model.generateContent(fullPrompt);
+            responseText = result.response.text() || "";
+          } catch (err) {
+            console.error("Gemini error:", err);
+            responseText = `Based on your knowledge base: ${relevantChunks[0].content.slice(0, 300)}...`;
+          }
+        } else if (openai) {
+          try {
+            const response = await openai.chat.completions.create({
+              model: "gpt-5",
+              messages: [
+                {
+                  role: "system",
+                  content: `You are ${chatbotConfig?.botName || "AI Assistant"}. Answer only from the provided context. Be ${chatbotConfig?.tone || "professional"}.`,
+                },
+                { role: "user", content: `Context:\n${context}\n\nQuestion: ${message}` },
+              ],
+              max_completion_tokens: 512,
+            });
+            responseText = response.choices[0].message.content || "";
+          } catch (err) {
+            console.error("OpenAI error:", err);
+            responseText = `Based on your knowledge base: ${relevantChunks[0].content.slice(0, 300)}...`;
+          }
         } else {
           responseText = `Based on your knowledge base: ${relevantChunks[0].content.slice(0, 300)}...`;
         }

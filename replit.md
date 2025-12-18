@@ -33,7 +33,9 @@ A SaaS platform where businesses can upload their internal knowledge (documents,
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Shadcn/UI, TanStack Query
 - **Backend**: Express.js, Drizzle ORM, PostgreSQL
 - **Auth**: Replit Auth (OpenID Connect)
-- **AI**: OpenAI GPT-5 for RAG-based responses
+- **AI**: Multi-provider support
+  - OpenAI GPT-5 for RAG-based responses
+  - Google Gemini 2.0 Flash for RAG-based responses
 
 ## Database Schema
 
@@ -54,16 +56,21 @@ A SaaS platform where businesses can upload their internal knowledge (documents,
 Required:
 - `DATABASE_URL` - PostgreSQL connection string
 - `SESSION_SECRET` - Session encryption key
-- `OPENAI_API_KEY` - OpenAI API key (optional, but enables AI responses)
+
+Optional (at least one required for AI responses):
+- `OPENAI_API_KEY` - OpenAI API key for GPT-5 responses
+- `GEMINI_API_KEY` - Google Gemini API key for Gemini responses
 
 ## Recent Changes
 
-- **2024-12-18**: Initial MVP implementation
-  - Complete schema with all database models
+- **2024-12-18**: Initial MVP implementation with multi-AI support
+  - Complete schema with all database models including aiProvider field
   - Full frontend with dashboard, projects, knowledge library, chatbot builder, embed script, MCP docs, analytics
   - Backend with auth, CRUD operations, file processing, chat/AI engine, MCP endpoints
   - Replit Auth integration
-  - RAG-based AI responses with OpenAI
+  - RAG-based AI responses with OpenAI GPT-5 and Google Gemini 2.0
+  - Users can select AI provider (OpenAI or Gemini) per chatbot configuration
+  - Modern gradient theme with purple-blue-teal colors and mobile-first design
 
 ## User Preferences
 

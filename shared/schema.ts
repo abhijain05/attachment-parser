@@ -128,6 +128,7 @@ export const chatbotConfigs = pgTable("chatbot_configs", {
   botName: varchar("bot_name", { length: 100 }).default("AI Assistant"),
   tone: varchar("tone", { length: 50 }).default("professional"), // professional, friendly, formal
   showSources: boolean("show_sources").default(true),
+  aiProvider: varchar("ai_provider", { length: 20 }).default("openai"), // openai, gemini
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
