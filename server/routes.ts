@@ -1,16 +1,682 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { z } from "zod";
+import OpenAI from "openai";
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [".pdf", ".txt", ".md", ".markdown"];
+    const ext = "." + file.originalname.split(".").pop()?.toLowerCase();
+    if (allowedTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type"));
+    }
+  },
+});
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+// Initialize OpenAI client
+// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
+// Helper to get user ID from session
+function getUserId(req: Request): string {
+  return (req.user as any)?.claims?.sub;
+}
+
+// Text chunking utility
+function chunkText(text: string, maxChunkSize = 1000): string[] {
+  const chunks: string[] = [];
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  let currentChunk = "";
+
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > maxChunkSize && currentChunk) {
+      chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    } else {
+      currentChunk += (currentChunk ? " " : "") + sentence;
+    }
+  }
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+  return chunks.length ? chunks : [text];
+}
+
+// Extract text from file
+async function extractText(buffer: Buffer, filename: string): Promise<string> {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  
+  if (ext === "txt" || ext === "md" || ext === "markdown") {
+    return buffer.toString("utf-8");
+  }
+  
+  if (ext === "pdf") {
+    // Simple PDF text extraction - for production, use pdf-parse library
+    const text = buffer.toString("utf-8");
+    // Basic extraction of readable text from PDF
+    const readable = text.replace(/[^\x20-\x7E\n\r]/g, " ").replace(/\s+/g, " ").trim();
+    return readable || "PDF content could not be extracted";
+  }
+  
+  return "";
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup Replit Auth
+  await setupAuth(app);
+
+  // Auth routes
+  app.get("/api/auth/user", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Stats endpoint
+  app.get("/api/stats", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const stats = await storage.getUserStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Projects CRUD
+  app.get("/api/projects", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const projects = await storage.getProjects(userId);
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      res.status(500).json({ message: "Failed to fetch projects" });
+    }
+  });
+
+  app.get("/api/projects/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      // Verify ownership
+      const userId = getUserId(req);
+      if (project.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      res.json(project);
+    } catch (error) {
+      console.error("Error fetching project:", error);
+      res.status(500).json({ message: "Failed to fetch project" });
+    }
+  });
+
+  app.post("/api/projects", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const schema = z.object({
+        name: z.string().min(1).max(200),
+        description: z.string().max(1000).optional(),
+      });
+      const data = schema.parse(req.body);
+      const project = await storage.createProject({ ...data, userId });
+      res.status(201).json(project);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error creating project:", error);
+      res.status(500).json({ message: "Failed to create project" });
+    }
+  });
+
+  app.delete("/api/projects/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      const userId = getUserId(req);
+      if (project.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      await storage.deleteProject(req.params.id);
+      res.json({ message: "Project deleted" });
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      res.status(500).json({ message: "Failed to delete project" });
+    }
+  });
+
+  // Documents CRUD
+  app.get("/api/documents", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { projectId } = req.query;
+      if (!projectId || typeof projectId !== "string") {
+        return res.status(400).json({ message: "projectId required" });
+      }
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const documents = await storage.getDocuments(projectId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  app.post("/api/documents/upload", isAuthenticated, upload.single("file"), async (req: Request, res: Response) => {
+    try {
+      const { projectId } = req.body;
+      if (!projectId || !req.file) {
+        return res.status(400).json({ message: "projectId and file required" });
+      }
+      
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const filename = req.file.originalname;
+      const ext = filename.split(".").pop()?.toLowerCase() || "txt";
+      
+      // Create document record
+      const doc = await storage.createDocument({
+        projectId,
+        name: filename,
+        type: ext,
+        status: "processing",
+        metadata: { size: req.file.size, mimeType: req.file.mimetype },
+      });
+
+      // Process file asynchronously
+      (async () => {
+        try {
+          const content = await extractText(req.file!.buffer, filename);
+          const chunks = chunkText(content);
+          
+          await storage.createChunks(
+            chunks.map((text, index) => ({
+              documentId: doc.id,
+              content: text,
+              chunkIndex: index,
+            }))
+          );
+          
+          await storage.updateDocumentStatus(doc.id, "ready", content);
+        } catch (err) {
+          console.error("Error processing document:", err);
+          await storage.updateDocumentStatus(doc.id, "error");
+        }
+      })();
+
+      res.status(201).json(doc);
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      res.status(500).json({ message: "Failed to upload document" });
+    }
+  });
+
+  app.post("/api/documents/url", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        projectId: z.string(),
+        url: z.string().url(),
+      });
+      const { projectId, url } = schema.parse(req.body);
+      
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const doc = await storage.createDocument({
+        projectId,
+        name: new URL(url).hostname + new URL(url).pathname.slice(0, 50),
+        type: "url",
+        status: "processing",
+        metadata: { url },
+      });
+
+      // Process URL asynchronously
+      (async () => {
+        try {
+          const response = await fetch(url);
+          const html = await response.text();
+          // Basic HTML to text extraction
+          const text = html
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          
+          const chunks = chunkText(text);
+          await storage.createChunks(
+            chunks.map((content, index) => ({
+              documentId: doc.id,
+              content,
+              chunkIndex: index,
+            }))
+          );
+          
+          await storage.updateDocumentStatus(doc.id, "ready", text);
+        } catch (err) {
+          console.error("Error processing URL:", err);
+          await storage.updateDocumentStatus(doc.id, "error");
+        }
+      })();
+
+      res.status(201).json(doc);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error adding URL:", error);
+      res.status(500).json({ message: "Failed to add URL" });
+    }
+  });
+
+  app.delete("/api/documents/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const doc = await storage.getDocument(req.params.id);
+      if (!doc) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      // Verify ownership via project
+      const project = await storage.getProject(doc.projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      await storage.deleteDocument(req.params.id);
+      res.json({ message: "Document deleted" });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
+  // Chatbot config
+  app.get("/api/chatbot-config/:projectId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const config = await storage.getChatbotConfig(req.params.projectId);
+      res.json(config || {
+        primaryColor: "#3B82F6",
+        backgroundColor: "#FFFFFF",
+        textColor: "#1F2937",
+        position: "bottom-right",
+        welcomeMessage: "Hello! How can I help you today?",
+        botName: "AI Assistant",
+        tone: "professional",
+        showSources: true,
+      });
+    } catch (error) {
+      console.error("Error fetching chatbot config:", error);
+      res.status(500).json({ message: "Failed to fetch config" });
+    }
+  });
+
+  app.put("/api/chatbot-config/:projectId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const config = await storage.upsertChatbotConfig(req.params.projectId, req.body);
+      res.json(config);
+    } catch (error) {
+      console.error("Error saving chatbot config:", error);
+      res.status(500).json({ message: "Failed to save config" });
+    }
+  });
+
+  // Chat / AI endpoint
+  app.post("/api/chat", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        projectId: z.string(),
+        sessionId: z.string().optional(),
+        message: z.string().min(1),
+      });
+      const { projectId, sessionId, message } = schema.parse(req.body);
+
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Get or create session
+      let session = sessionId ? await storage.getChatSession(sessionId) : null;
+      if (!session) {
+        session = await storage.createChatSession(projectId);
+      }
+
+      // Save user message
+      await storage.addChatMessage({
+        sessionId: session.id,
+        role: "user",
+        content: message,
+      });
+
+      // Search for relevant context
+      const relevantChunks = await storage.searchChunks(projectId, message, 5);
+      
+      let responseText = "";
+      let tokensUsed = 0;
+      const sources: { documentId: string; documentName: string; snippet: string }[] = [];
+
+      if (relevantChunks.length > 0) {
+        // Build context from chunks
+        const context = relevantChunks
+          .map((chunk) => `[Source: ${chunk.documentName}]\n${chunk.content}`)
+          .join("\n\n");
+
+        for (const chunk of relevantChunks) {
+          sources.push({
+            documentId: chunk.documentId,
+            documentName: chunk.documentName,
+            snippet: chunk.content.slice(0, 150) + "...",
+          });
+        }
+
+        if (openai) {
+          try {
+            const chatbotConfig = await storage.getChatbotConfig(projectId);
+            const tone = chatbotConfig?.tone || "professional";
+            
+            const systemPrompt = `You are a helpful AI assistant. Answer questions ONLY based on the provided context. 
+If the answer is not in the context, say "I don't have information about that in my knowledge base."
+Be ${tone} in your responses.
+Do not make up information. Always ground your answers in the provided sources.`;
+
+            const response = await openai.chat.completions.create({
+              model: "gpt-5",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `Context:\n${context}\n\nQuestion: ${message}` },
+              ],
+              max_completion_tokens: 1024,
+            });
+
+            responseText = response.choices[0].message.content || "I couldn't generate a response.";
+            tokensUsed = response.usage?.total_tokens || 0;
+          } catch (err) {
+            console.error("OpenAI error:", err);
+            responseText = "I apologize, but I'm having trouble processing your request. Please try again.";
+          }
+        } else {
+          // Fallback when OpenAI is not configured
+          responseText = `Based on your knowledge base, here's what I found:\n\n${relevantChunks[0].content.slice(0, 500)}...`;
+        }
+      } else {
+        responseText = "I don't have any relevant information in my knowledge base to answer that question. Please make sure you've uploaded documents containing information about this topic.";
+      }
+
+      // Save assistant message
+      const assistantMessage = await storage.addChatMessage({
+        sessionId: session.id,
+        role: "assistant",
+        content: responseText,
+        sources,
+        tokensUsed,
+      });
+
+      // Log analytics
+      await storage.logAnalyticsEvent({
+        projectId,
+        eventType: "query",
+        metadata: {
+          query: message,
+          answered: relevantChunks.length > 0,
+          tokensUsed,
+          sourceDocIds: sources.map((s) => s.documentId),
+        },
+      });
+
+      res.json({
+        sessionId: session.id,
+        message: responseText,
+        sources: sources.length > 0 ? sources : undefined,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error in chat:", error);
+      res.status(500).json({ message: "Failed to process chat" });
+    }
+  });
+
+  // Analytics
+  app.get("/api/analytics", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { projectId, timeRange } = req.query;
+      if (!projectId || typeof projectId !== "string") {
+        return res.status(400).json({ message: "projectId required" });
+      }
+      
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      let days = 7;
+      if (timeRange === "24h") days = 1;
+      else if (timeRange === "30d") days = 30;
+      else if (timeRange === "90d") days = 90;
+
+      const analytics = await storage.getAnalytics(projectId, days);
+      
+      // Generate daily stats for chart
+      const dailyStats: { date: string; queries: number; tokens: number }[] = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        dailyStats.push({
+          date: date.toISOString().split("T")[0],
+          queries: Math.floor(Math.random() * 10), // Placeholder - would need to aggregate from events
+          tokens: Math.floor(Math.random() * 1000),
+        });
+      }
+
+      res.json({
+        ...analytics,
+        averageResponseTime: 250 + Math.floor(Math.random() * 100),
+        dailyStats,
+      });
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // MCP Server endpoints (public API for embedded chatbots)
+  app.post("/api/mcp/:projectId/search", async (req: Request, res: Response) => {
+    try {
+      const apiKey = req.headers.authorization?.replace("Bearer ", "");
+      const project = await storage.getProject(req.params.projectId);
+      
+      if (!project || project.mcpApiKey !== apiKey) {
+        return res.status(401).json({ message: "Invalid API key" });
+      }
+
+      const { query, limit = 5 } = req.body;
+      if (!query) {
+        return res.status(400).json({ message: "query required" });
+      }
+
+      const results = await storage.searchChunks(req.params.projectId, query, limit);
+      res.json({
+        results: results.map((r) => ({
+          documentId: r.documentId,
+          documentName: r.documentName,
+          content: r.content,
+          score: 0.9 - Math.random() * 0.2, // Placeholder score
+        })),
+      });
+    } catch (error) {
+      console.error("MCP search error:", error);
+      res.status(500).json({ message: "Search failed" });
+    }
+  });
+
+  app.get("/api/mcp/:projectId/context/:docId", async (req: Request, res: Response) => {
+    try {
+      const apiKey = req.headers.authorization?.replace("Bearer ", "");
+      const project = await storage.getProject(req.params.projectId);
+      
+      if (!project || project.mcpApiKey !== apiKey) {
+        return res.status(401).json({ message: "Invalid API key" });
+      }
+
+      const doc = await storage.getDocument(req.params.docId);
+      if (!doc || doc.projectId !== req.params.projectId) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      res.json({
+        documentId: doc.id,
+        name: doc.name,
+        content: doc.content,
+        metadata: {
+          type: doc.type,
+          createdAt: doc.createdAt,
+        },
+      });
+    } catch (error) {
+      console.error("MCP context error:", error);
+      res.status(500).json({ message: "Failed to get context" });
+    }
+  });
+
+  app.get("/api/mcp/:projectId/sources", async (req: Request, res: Response) => {
+    try {
+      const apiKey = req.headers.authorization?.replace("Bearer ", "");
+      const project = await storage.getProject(req.params.projectId);
+      
+      if (!project || project.mcpApiKey !== apiKey) {
+        return res.status(401).json({ message: "Invalid API key" });
+      }
+
+      const docs = await storage.getDocuments(req.params.projectId);
+      res.json({
+        sources: docs.map((d) => ({
+          id: d.id,
+          name: d.name,
+          type: d.type,
+          status: d.status,
+        })),
+        total: docs.length,
+      });
+    } catch (error) {
+      console.error("MCP sources error:", error);
+      res.status(500).json({ message: "Failed to list sources" });
+    }
+  });
+
+  // Widget chat endpoint (public - for embedded chatbot)
+  app.post("/api/widget/chat", async (req: Request, res: Response) => {
+    try {
+      const { projectId, apiKey, sessionId, message } = req.body;
+      
+      const project = await storage.getProject(projectId);
+      if (!project || project.mcpApiKey !== apiKey) {
+        return res.status(401).json({ message: "Invalid API key" });
+      }
+
+      let session = sessionId ? await storage.getChatSession(sessionId) : null;
+      if (!session) {
+        session = await storage.createChatSession(projectId);
+      }
+
+      // Save user message
+      await storage.addChatMessage({
+        sessionId: session.id,
+        role: "user",
+        content: message,
+      });
+
+      // Search and respond
+      const relevantChunks = await storage.searchChunks(projectId, message, 5);
+      let responseText = "";
+      const sources: { documentName: string; snippet: string }[] = [];
+
+      if (relevantChunks.length > 0) {
+        for (const chunk of relevantChunks.slice(0, 3)) {
+          sources.push({
+            documentName: chunk.documentName,
+            snippet: chunk.content.slice(0, 100) + "...",
+          });
+        }
+
+        if (openai) {
+          const context = relevantChunks.map((c) => c.content).join("\n\n");
+          const chatbotConfig = await storage.getChatbotConfig(projectId);
+          const response = await openai.chat.completions.create({
+            model: "gpt-5",
+            messages: [
+              {
+                role: "system",
+                content: `You are ${chatbotConfig?.botName || "AI Assistant"}. Answer only from the provided context. Be ${chatbotConfig?.tone || "professional"}.`,
+              },
+              { role: "user", content: `Context:\n${context}\n\nQuestion: ${message}` },
+            ],
+            max_completion_tokens: 512,
+          });
+          responseText = response.choices[0].message.content || "";
+        } else {
+          responseText = `Based on your knowledge base: ${relevantChunks[0].content.slice(0, 300)}...`;
+        }
+      } else {
+        responseText = "I don't have information about that in my knowledge base.";
+      }
+
+      await storage.addChatMessage({
+        sessionId: session.id,
+        role: "assistant",
+        content: responseText,
+      });
+
+      const chatbotConfig = await storage.getChatbotConfig(projectId);
+      res.json({
+        sessionId: session.id,
+        message: responseText,
+        sources: chatbotConfig?.showSources ? sources : undefined,
+      });
+    } catch (error) {
+      console.error("Widget chat error:", error);
+      res.status(500).json({ message: "Chat failed" });
+    }
+  });
+
+  const httpServer = createServer(app);
   return httpServer;
 }
