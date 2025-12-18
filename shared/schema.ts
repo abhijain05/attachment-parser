@@ -12,7 +12,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table for Replit Auth
+// Session storage table for authentication
 export const sessions = pgTable(
   "sessions",
   {
@@ -23,19 +23,40 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// Users table for Replit Auth
+// Users table with email/password and OAuth support
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
+  email: varchar("email").unique().notNull(),
+  password: varchar("password"), // null for OAuth users
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  authProvider: varchar("auth_provider", { length: 20 }).default("email"), // email, google
+  googleId: varchar("google_id").unique(),
+  emailVerified: boolean("email_verified").default(false),
+  verificationToken: varchar("verification_token"),
+  verificationExpires: timestamp("verification_expires"),
+  resetToken: varchar("reset_token"),
+  resetExpires: timestamp("reset_expires"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// Insert schema for user registration
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  emailVerified: true,
+  verificationToken: true,
+  verificationExpires: true,
+  resetToken: true,
+  resetExpires: true,
+});
+export type InsertUser = z.infer<typeof insertUserSchema>;
 
 // Projects table - each user can have multiple knowledge projects
 export const projects = pgTable("projects", {

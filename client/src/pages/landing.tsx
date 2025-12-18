@@ -69,7 +69,7 @@ export default function Landing() {
           <div className="flex items-center gap-1 sm:gap-2">
             <ThemeToggle />
             <Button asChild data-testid="button-login" size="sm" className="text-xs sm:text-sm">
-              <a href="/api/login">Sign In</a>
+              <a href="/login">Sign In</a>
             </Button>
           </div>
         </div>
@@ -94,13 +94,13 @@ export default function Landing() {
               
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
                 <Button size="lg" asChild data-testid="button-get-started" className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                  <a href="/api/login">
+                  <a href="/signup">
                     Get Started
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </a>
                 </Button>
-                <Button size="lg" variant="outline" data-testid="button-learn-more" className="w-full sm:w-auto">
-                  Learn More
+                <Button size="lg" variant="outline" asChild data-testid="button-learn-more" className="w-full sm:w-auto">
+                  <a href="/login">Sign In</a>
                 </Button>
               </div>
             </div>

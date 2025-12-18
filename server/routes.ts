@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -35,7 +35,7 @@ const gemini = process.env.GEMINI_API_KEY
 
 // Helper to get user ID from session
 function getUserId(req: Request): string {
-  return (req.user as any)?.claims?.sub;
+  return (req.user as any)?.id;
 }
 
 // Text chunking utility
