@@ -233,6 +233,60 @@ export const analyticsEventsRelations = relations(analyticsEvents, ({ one }) => 
 
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 
+// Visitor sessions for tracking website visitors
+export const visitorSessions = pgTable("visitor_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  sessionId: varchar("session_id").notNull(), // Unique session ID for each visitor
+  pageUrl: text("page_url"),
+  referrer: text("referrer"),
+  chatMode: varchar("chat_mode", { length: 20 }).default("ai"), // ai, live, waiting
+  visitorName: varchar("visitor_name"),
+  visitorEmail: varchar("visitor_email"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const visitorSessionsRelations = relations(visitorSessions, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [visitorSessions.projectId],
+    references: [projects.id],
+  }),
+  liveChats: many(liveChatMessages),
+}));
+
+export type VisitorSession = typeof visitorSessions.$inferSelect;
+export const insertVisitorSessionSchema = createInsertSchema(visitorSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertVisitorSession = z.infer<typeof insertVisitorSessionSchema>;
+
+// Live chat messages between owner and visitor
+export const liveChatMessages = pgTable("live_chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  visitorSessionId: varchar("visitor_session_id").notNull().references(() => visitorSessions.id, { onDelete: "cascade" }),
+  sender: varchar("sender", { length: 20 }).notNull(), // owner, visitor
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const liveChatMessagesRelations = relations(liveChatMessages, ({ one }) => ({
+  visitorSession: one(visitorSessions, {
+    fields: [liveChatMessages.visitorSessionId],
+    references: [visitorSessions.id],
+  }),
+}));
+
+export type LiveChatMessage = typeof liveChatMessages.$inferSelect;
+export const insertLiveChatMessageSchema = createInsertSchema(liveChatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertLiveChatMessage = z.infer<typeof insertLiveChatMessageSchema>;
+
 // API Types for frontend
 export const chatRequestSchema = z.object({
   projectId: z.string(),

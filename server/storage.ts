@@ -7,6 +7,8 @@ import {
   chatSessions,
   chatMessages,
   analyticsEvents,
+  visitorSessions,
+  liveChatMessages,
   type User,
   type UpsertUser,
   type Project,
@@ -19,6 +21,10 @@ import {
   type ChatSession,
   type ChatMessage,
   type AnalyticsEvent,
+  type VisitorSession,
+  type InsertVisitorSession,
+  type LiveChatMessage,
+  type InsertLiveChatMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -72,6 +78,20 @@ export interface IStorage {
     totalQueries: number;
     tokensUsed: number;
   }>;
+
+  // Visitor session operations
+  createVisitorSession(session: InsertVisitorSession): Promise<VisitorSession>;
+  getVisitorSession(id: string): Promise<VisitorSession | undefined>;
+  getProjectVisitors(projectId: string): Promise<VisitorSession[]>;
+  updateVisitorSession(id: string, updates: Partial<VisitorSession>): Promise<void>;
+
+  // Live chat operations
+  addLiveChatMessage(message: InsertLiveChatMessage): Promise<LiveChatMessage>;
+  getLiveChatMessages(visitorSessionId: string): Promise<LiveChatMessage[]>;
+  getProjectLiveChats(projectId: string): Promise<{
+    visitorSession: VisitorSession;
+    messages: LiveChatMessage[];
+  }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -325,6 +345,45 @@ export class DatabaseStorage implements IStorage {
       totalQueries,
       tokensUsed,
     };
+  }
+
+  // Visitor session operations
+  async createVisitorSession(session: InsertVisitorSession): Promise<VisitorSession> {
+    const [newSession] = await db.insert(visitorSessions).values(session).returning();
+    return newSession;
+  }
+
+  async getVisitorSession(id: string): Promise<VisitorSession | undefined> {
+    const [session] = await db.select().from(visitorSessions).where(eq(visitorSessions.id, id));
+    return session;
+  }
+
+  async getProjectVisitors(projectId: string): Promise<VisitorSession[]> {
+    return db.select().from(visitorSessions).where(eq(visitorSessions.projectId, projectId)).orderBy(desc(visitorSessions.updatedAt));
+  }
+
+  async updateVisitorSession(id: string, updates: Partial<VisitorSession>): Promise<void> {
+    await db.update(visitorSessions).set({ ...updates, updatedAt: new Date() }).where(eq(visitorSessions.id, id));
+  }
+
+  // Live chat operations
+  async addLiveChatMessage(message: InsertLiveChatMessage): Promise<LiveChatMessage> {
+    const [msg] = await db.insert(liveChatMessages).values(message).returning();
+    return msg;
+  }
+
+  async getLiveChatMessages(visitorSessionId: string): Promise<LiveChatMessage[]> {
+    return db.select().from(liveChatMessages).where(eq(liveChatMessages.visitorSessionId, visitorSessionId)).orderBy(liveChatMessages.createdAt);
+  }
+
+  async getProjectLiveChats(projectId: string): Promise<{ visitorSession: VisitorSession; messages: LiveChatMessage[] }[]> {
+    const sessions = await db.select().from(visitorSessions).where(eq(visitorSessions.projectId, projectId));
+    const result = [];
+    for (const session of sessions) {
+      const messages = await this.getLiveChatMessages(session.id);
+      result.push({ visitorSession: session, messages });
+    }
+    return result;
   }
 }
 

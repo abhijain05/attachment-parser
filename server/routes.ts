@@ -8,6 +8,7 @@ import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as pdfParse from "pdf-parse";
 import JSZip from "jszip";
+import { Server as SocketIOServer } from "socket.io";
 
 // Helper function for cosine similarity
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -871,6 +872,131 @@ Do not make up information. Always ground your answers in the provided sources.`
     }
   });
 
+  // Visitor tracking endpoint (public - for embedded chatbot)
+  app.post("/api/visitor/track", async (req: Request, res: Response) => {
+    try {
+      const { projectId, apiKey, sessionId, pageUrl, referrer } = req.body;
+      
+      const project = await storage.getProject(projectId);
+      if (!project || project.mcpApiKey !== apiKey) {
+        return res.status(401).json({ message: "Invalid API key" });
+      }
+
+      let visitor = sessionId ? await storage.getVisitorSession(sessionId) : null;
+      if (!visitor) {
+        visitor = await storage.createVisitorSession({
+          projectId,
+          sessionId: sessionId || `visitor-${Date.now()}-${Math.random()}`,
+          pageUrl,
+          referrer,
+          chatMode: "ai",
+        });
+      } else {
+        await storage.updateVisitorSession(visitor.id, { pageUrl, updatedAt: new Date() });
+      }
+
+      res.json({ sessionId: visitor.id });
+    } catch (error) {
+      console.error("Visitor tracking error:", error);
+      res.status(500).json({ message: "Tracking failed" });
+    }
+  });
+
+  // Visitors list endpoint (authenticated - owner only)
+  app.get("/api/visitors", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { projectId } = req.query;
+      if (!projectId || typeof projectId !== "string") {
+        return res.status(400).json({ message: "projectId required" });
+      }
+
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const visitors = await storage.getProjectVisitors(projectId);
+      res.json(visitors);
+    } catch (error) {
+      console.error("Error fetching visitors:", error);
+      res.status(500).json({ message: "Failed to fetch visitors" });
+    }
+  });
+
+  // Live chat messages endpoint
+  app.post("/api/live-chat/send", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { visitorSessionId, content } = req.body;
+      
+      const visitorSession = await storage.getVisitorSession(visitorSessionId);
+      if (!visitorSession) {
+        return res.status(404).json({ message: "Visitor session not found" });
+      }
+
+      const project = await storage.getProject(visitorSession.projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const message = await storage.addLiveChatMessage({
+        visitorSessionId,
+        sender: "owner",
+        content,
+      });
+
+      res.json(message);
+    } catch (error) {
+      console.error("Error sending live chat:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Get live chat history
+  app.get("/api/live-chat/:visitorSessionId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const visitorSession = await storage.getVisitorSession(req.params.visitorSessionId);
+      if (!visitorSession) {
+        return res.status(404).json({ message: "Visitor session not found" });
+      }
+
+      const project = await storage.getProject(visitorSession.projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const messages = await storage.getLiveChatMessages(req.params.visitorSessionId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
+      res.status(500).json({ message: "Failed to fetch chat history" });
+    }
+  });
+
   const httpServer = createServer(app);
+  
+  // Setup WebSocket for real-time chat
+  const io = new SocketIOServer(httpServer, {
+    cors: { origin: "*", methods: ["GET", "POST"] }
+  });
+
+  io.on("connection", (socket) => {
+    socket.on("join-visitor", (visitorSessionId: string) => {
+      socket.join(`visitor-${visitorSessionId}`);
+    });
+
+    socket.on("send-message", async (data: { visitorSessionId: string; sender: string; content: string }) => {
+      try {
+        await storage.addLiveChatMessage({
+          visitorSessionId: data.visitorSessionId,
+          sender: data.sender,
+          content: data.content,
+        });
+        io.to(`visitor-${data.visitorSessionId}`).emit("message", data);
+      } catch (err) {
+        console.error("WebSocket message error:", err);
+      }
+    });
+  });
+
   return httpServer;
 }

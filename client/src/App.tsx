@@ -22,6 +22,7 @@ import Settings from "@/pages/settings";
 import EmbedScript from "@/pages/embed";
 import MCPServer from "@/pages/mcp";
 import Analytics from "@/pages/analytics";
+import VisitorsPage from "@/pages/visitors";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout() {
@@ -53,6 +54,7 @@ function AuthenticatedLayout() {
               <Route path="/embed" component={EmbedScript} />
               <Route path="/mcp" component={MCPServer} />
               <Route path="/analytics" component={Analytics} />
+              <Route path="/visitors/:projectId" component={({ projectId }) => <VisitorsPage projectId={projectId} />} />
               <Route component={NotFound} />
             </Switch>
           </main>

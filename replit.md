@@ -63,6 +63,15 @@ Optional (at least one required for AI responses):
 
 ## Recent Changes
 
+- **2024-12-19**: Dual Chat Mode Enhancement (AI + Live Owner Chat)
+  - New database tables: visitor_sessions, live_chat_messages
+  - Visitor session tracking with page URL, referrer, and chat mode
+  - Real-time WebSocket support for live owner-visitor chat
+  - API endpoints for visitor tracking, live chat messaging
+  - Visitors dashboard page to see active visitors and chat with them
+  - Live chat message history storage and retrieval
+  - Chat mode indicators (AI vs Live) for each visitor session
+
 - **2024-12-18**: Initial MVP implementation with multi-AI support
   - Complete schema with all database models including aiProvider field
   - Full frontend with dashboard, projects, knowledge library, chatbot builder, embed script, MCP docs, analytics
