@@ -13,12 +13,12 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
-    const allowedTypes = [".pdf", ".txt", ".md", ".markdown"];
+    const allowedTypes = [".pdf", ".txt", ".md", ".markdown", ".docx"];
     const ext = "." + file.originalname.split(".").pop()?.toLowerCase();
     if (allowedTypes.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type"));
+      cb(new Error("Invalid file type. Allowed: PDF, DOCX, TXT, MD"));
     }
   },
 });
@@ -59,6 +59,36 @@ function chunkText(text: string, maxChunkSize = 1000): string[] {
   return chunks.length ? chunks : [text];
 }
 
+// Extract text from DOCX file
+async function extractDocxText(buffer: Buffer): Promise<string> {
+  try {
+    // DOCX is a ZIP file, extract and parse document.xml
+    const JSZip = require("jszip");
+    const zip = new JSZip();
+    await zip.loadAsync(buffer);
+    
+    const xmlFile = zip.file("word/document.xml");
+    if (!xmlFile) {
+      return "DOCX file has no content";
+    }
+    
+    const xmlContent = await xmlFile.async("text");
+    // Extract text between XML tags
+    const text = xmlContent
+      .replace(/<[^>]+>/g, " ") // Remove XML tags
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+      .replace(/\s+/g, " ")
+      .trim();
+    
+    return text || "DOCX document (no text content)";
+  } catch (err) {
+    console.error("Error extracting DOCX:", err);
+    return "DOCX document (extraction error)";
+  }
+}
+
 // Extract text from file
 async function extractText(buffer: Buffer, filename: string): Promise<string> {
   const ext = filename.split(".").pop()?.toLowerCase();
@@ -67,14 +97,17 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
     return buffer.toString("utf-8");
   }
   
+  if (ext === "docx") {
+    return await extractDocxText(buffer);
+  }
+  
   if (ext === "pdf") {
     try {
       const data = await pdfParse.default(buffer);
       let text = data.text || "";
       
-      // If pdf-parse didn't extract text, try raw byte extraction as fallback
-      if (!text.trim() || text.length < 50) {
-        console.warn("PDF-parse extracted minimal content, trying fallback:", filename);
+      if (!text.trim()) {
+        console.warn("PDF-parse extracted no text, trying fallback:", filename);
         // Try to extract printable ASCII text from the raw buffer
         const rawText = buffer.toString("latin1");
         text = rawText
@@ -85,8 +118,7 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
       
       if (!text.trim()) {
         console.warn("PDF extracted no usable text content:", filename);
-        // Return a placeholder that at least indicates a document exists
-        return "PDF document (content could not be extracted - may be image-based)";
+        return "PDF document (content could not be extracted)";
       }
       
       // Clean up extracted text - normalize whitespace
@@ -248,38 +280,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const content = await extractText(req.file!.buffer, filename);
           
-          // Check if content looks like corrupted binary data
-          const isCorrupted = /^[!@#$%^&*()_+=\[\]{};:'",.<>?/\\|`~\s\d]{20,}$/.test(content.slice(0, 200));
-          if (isCorrupted) {
-            console.error("Detected corrupted PDF content - likely image-based PDF:", filename);
-            await storage.updateDocumentStatus(doc.id, "error", "PDF appears to be image-based or corrupted. Please upload a text-based PDF.");
-            return;
-          }
-          
-          // Check if content is meaningful (at least some real words)
-          const wordCount = content.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
-          if (wordCount < 10) {
-            console.warn("Insufficient text extracted from PDF:", filename, `words: ${wordCount}`);
-            await storage.updateDocumentStatus(doc.id, "error", "Could not extract meaningful text from PDF. Ensure it's a text-based PDF, not an image-based one.");
-            return;
-          }
-          
+          // Just create chunks from whatever content we extracted
+          // Even if it's limited, let the AI work with what we have
           const chunks = chunkText(content);
           
-          // Validate chunks before storing
-          const validChunks = chunks.filter(chunk => {
-            const hasWords = /[a-zA-Z]{2,}/.test(chunk);
-            return hasWords && chunk.length > 10;
-          });
-          
-          if (validChunks.length === 0) {
-            console.error("No valid chunks extracted from document:", filename);
-            await storage.updateDocumentStatus(doc.id, "error", "No readable content found in document.");
+          if (chunks.length === 0 || !content.trim()) {
+            console.error("No content extracted from document:", filename);
+            await storage.updateDocumentStatus(doc.id, "error", "Could not extract text from file. Please ensure it's a valid, text-based document.");
             return;
           }
           
           await storage.createChunks(
-            validChunks.map((text, index) => ({
+            chunks.map((text, index) => ({
               documentId: doc.id,
               content: text,
               chunkIndex: index,
@@ -287,6 +299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           
           await storage.updateDocumentStatus(doc.id, "ready", content);
+          console.log(`[Document] Successfully processed ${filename}: ${chunks.length} chunks created`);
         } catch (err) {
           console.error("Error processing document:", err);
           await storage.updateDocumentStatus(doc.id, "error", "Error processing document. Please try a different file.");
