@@ -330,6 +330,22 @@ export default function ChatbotBuilder() {
                         data-testid="switch-show-sources"
                       />
                     </div>
+
+                    <div className="border-t pt-4 mt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Enable Live Chat</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Allow visitors to chat with you in real-time
+                          </p>
+                        </div>
+                        <Switch
+                          checked={config.enableLiveChat || false}
+                          onCheckedChange={(v) => setConfig({ ...config, enableLiveChat: v })}
+                          data-testid="switch-enable-live-chat"
+                        />
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

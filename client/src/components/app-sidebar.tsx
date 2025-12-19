@@ -57,6 +57,11 @@ const projectMenuItems = [
     icon: MessageSquare,
   },
   {
+    title: "Active Visitors",
+    url: "/visitors",
+    icon: MessageSquare,
+  },
+  {
     title: "Settings",
     url: "/settings",
     icon: Sliders,

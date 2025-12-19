@@ -54,7 +54,7 @@ function AuthenticatedLayout() {
               <Route path="/embed" component={EmbedScript} />
               <Route path="/mcp" component={MCPServer} />
               <Route path="/analytics" component={Analytics} />
-              <Route path="/visitors/:projectId" component={({ projectId }) => <VisitorsPage projectId={projectId} />} />
+              <Route path="/visitors/:projectId" component={VisitorsPage} />
               <Route component={NotFound} />
             </Switch>
           </main>

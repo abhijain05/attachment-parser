@@ -38,11 +38,29 @@ export default function EmbedScript() {
     return `<!-- Knowledge AI Chatbot Widget -->
 <script>
   (function() {
+    // Track visitor session
+    var sessionId = localStorage.getItem('kabot-session') || 'visitor-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('kabot-session', sessionId);
+    
+    // Send visitor tracking
+    fetch('${baseUrl}/api/visitor/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: '${selectedProject}',
+        apiKey: '${selectedProjectData.mcpApiKey}',
+        sessionId: sessionId,
+        pageUrl: window.location.href,
+        referrer: document.referrer
+      })
+    }).catch(e => console.log('Visitor tracking:', e));
+    
     var script = document.createElement('script');
     script.src = '${baseUrl}/widget.js';
     script.async = true;
     script.dataset.projectId = '${selectedProject}';
     script.dataset.apiKey = '${selectedProjectData.mcpApiKey}';
+    script.dataset.sessionId = sessionId;
     document.head.appendChild(script);
   })();
 </script>`;

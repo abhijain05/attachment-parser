@@ -11,10 +11,13 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { VisitorSession, LiveChatMessage } from "@shared/schema";
 
 interface VisitorsPageProps {
-  projectId: string;
+  projectId?: string;
 }
 
-export default function VisitorsPage({ projectId }: VisitorsPageProps) {
+export default function VisitorsPage({ projectId: propsProjectId }: VisitorsPageProps) {
+  const [location] = useLocation();
+  const routeMatch = location.match(/\/visitors\/(.+)/);
+  const projectId = propsProjectId || routeMatch?.[1] || "";
   const [selectedVisitor, setSelectedVisitor] = useState<string | null>(null);
   const [chatMessage, setChatMessage] = useState("");
 
