@@ -55,6 +55,7 @@ function AuthenticatedLayout() {
               <Route path="/mcp" component={MCPServer} />
               <Route path="/analytics" component={Analytics} />
               <Route path="/visitors/:projectId" component={VisitorsPage} />
+              <Route path="/visitors" component={VisitorsPage} />
               <Route component={NotFound} />
             </Switch>
           </main>
