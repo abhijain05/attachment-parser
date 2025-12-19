@@ -70,20 +70,33 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
   if (ext === "pdf") {
     try {
       const data = await pdfParse.default(buffer);
-      const text = data.text || "";
+      let text = data.text || "";
       
-      if (!text.trim()) {
-        console.warn("PDF extracted no text content:", filename);
-        return "PDF content could not be extracted";
+      // If pdf-parse didn't extract text, try raw byte extraction as fallback
+      if (!text.trim() || text.length < 50) {
+        console.warn("PDF-parse extracted minimal content, trying fallback:", filename);
+        // Try to extract printable ASCII text from the raw buffer
+        const rawText = buffer.toString("latin1");
+        text = rawText
+          .replace(/[^\x20-\x7E\n\r]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
       }
       
-      // Clean up extracted text - remove excessive whitespace
+      if (!text.trim()) {
+        console.warn("PDF extracted no usable text content:", filename);
+        // Return a placeholder that at least indicates a document exists
+        return "PDF document (content could not be extracted - may be image-based)";
+      }
+      
+      // Clean up extracted text - normalize whitespace
       return text
-        .replace(/\s+/g, " ")
+        .split(/\s+/)
+        .join(" ")
         .trim();
     } catch (err) {
       console.error("Error parsing PDF:", filename, err);
-      return "Failed to extract PDF content";
+      return "PDF document (extraction error)";
     }
   }
   
@@ -428,6 +441,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let responseText = "";
       let tokensUsed = 0;
       const sources: { documentId: string; documentName: string; snippet: string }[] = [];
+      
+      console.log(`[Chat] Found ${relevantChunks.length} relevant chunks for query: "${message}"`);
+      if (relevantChunks.length > 0) {
+        console.log("[Chat] First chunk content length:", relevantChunks[0].content.length);
+      }
 
       if (relevantChunks.length > 0) {
         // Build context from chunks
@@ -456,9 +474,11 @@ Do not make up information. Always ground your answers in the provided sources.`
             const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
             const fullPrompt = `${systemPrompt}\n\nContext:\n${context}\n\nQuestion: ${message}`;
             const result = await model.generateContent(fullPrompt);
-            responseText = result.response.text()?.trim() || "I couldn't generate a response.";
-            if (!responseText || responseText.length === 0) {
-              responseText = "I couldn't generate a response.";
+            const rawResponse = result.response.text();
+            responseText = (rawResponse || "").trim();
+            if (!responseText || responseText.length < 2) {
+              console.warn("[Chat] Gemini returned empty/minimal response");
+              responseText = "I couldn't generate a meaningful response. The knowledge base may not contain relevant information for this query.";
             }
             tokensUsed = 0;
           } catch (err) {
@@ -477,9 +497,11 @@ Do not make up information. Always ground your answers in the provided sources.`
               max_completion_tokens: 1024,
             });
 
-            responseText = response.choices[0].message.content?.trim() || "I couldn't generate a response.";
-            if (!responseText || responseText.length === 0) {
-              responseText = "I couldn't generate a response.";
+            const rawResponse = response.choices[0].message.content;
+            responseText = (rawResponse || "").trim();
+            if (!responseText || responseText.length < 2) {
+              console.warn("[Chat] OpenAI returned empty/minimal response");
+              responseText = "I couldn't generate a meaningful response. The knowledge base may not contain relevant information for this query.";
             }
             tokensUsed = response.usage?.total_tokens || 0;
           } catch (err) {
@@ -515,11 +537,19 @@ Do not make up information. Always ground your answers in the provided sources.`
         },
       });
 
-      res.json({
+      // Final validation - ensure we ALWAYS return a non-empty message
+      if (!responseText || responseText.trim().length === 0) {
+        responseText = "No response generated. Please try a different query or ensure your knowledge base has relevant content.";
+      }
+      
+      const responsePayload = {
         sessionId: session.id,
         message: responseText,
         sources: sources.length > 0 ? sources : undefined,
-      });
+      };
+      
+      console.log("[Chat] Sending response:", { messageLength: responsePayload.message.length, hasSources: !!responsePayload.sources });
+      res.json(responsePayload);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });

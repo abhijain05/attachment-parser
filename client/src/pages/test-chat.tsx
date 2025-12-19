@@ -44,6 +44,16 @@ export default function TestChat() {
       });
     },
     onSuccess: (data: ChatResponse) => {
+      console.log("[TestChat] Received response:", { message: data.message, messageLength: data.message?.length });
+      if (!data.message || data.message.trim().length === 0) {
+        console.error("[TestChat] Received empty message from API");
+        toast({
+          title: "Empty Response",
+          description: "The server returned an empty response. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
       setSessionId(data.sessionId);
       setMessages((prev) => [
         ...prev,
@@ -54,7 +64,8 @@ export default function TestChat() {
         },
       ]);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("[TestChat] Chat error:", error);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
