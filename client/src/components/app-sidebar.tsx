@@ -8,6 +8,7 @@ import {
   BarChart3,
   Server,
   Settings,
+  Sliders,
   LogOut,
 } from "lucide-react";
 import {
@@ -54,6 +55,11 @@ const projectMenuItems = [
     title: "Chatbot Builder",
     url: "/chatbot",
     icon: MessageSquare,
+  },
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: Sliders,
   },
   {
     title: "Embed Script",

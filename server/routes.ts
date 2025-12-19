@@ -392,7 +392,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: message,
       });
 
-      // Search for relevant context
+      // Get chatbot config with user's API keys
+      const chatbotConfig = await storage.getChatbotConfig(projectId);
+      const aiProvider = chatbotConfig?.aiProvider || "openai";
+      const userOpenaiKey = chatbotConfig?.openaiApiKey;
+      const userGeminiKey = chatbotConfig?.geminiApiKey;
+
+      // Use user's API key or fallback to environment variables
+      let userOpenai: OpenAI | null = null;
+      let userGemini: GoogleGenerativeAI | null = null;
+
+      if (userOpenaiKey) {
+        userOpenai = new OpenAI({ apiKey: userOpenaiKey });
+      }
+      if (userGeminiKey) {
+        userGemini = new GoogleGenerativeAI(userGeminiKey);
+      }
+
+      // Search for relevant context from knowledge base
       const relevantChunks = await storage.searchChunks(projectId, message, 5);
       
       let responseText = "";
@@ -413,29 +430,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        const chatbotConfig = await storage.getChatbotConfig(projectId);
         const tone = chatbotConfig?.tone || "professional";
-        const aiProvider = chatbotConfig?.aiProvider || "openai";
         
         const systemPrompt = `You are a helpful AI assistant. Answer questions ONLY based on the provided context. 
 If the answer is not in the context, say "I don't have information about that in my knowledge base."
 Be ${tone} in your responses.
 Do not make up information. Always ground your answers in the provided sources.`;
 
-        if (aiProvider === "gemini" && gemini) {
+        if (aiProvider === "gemini" && (userGemini || gemini)) {
           try {
-            const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const geminiClient = userGemini || gemini;
+            const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
             const fullPrompt = `${systemPrompt}\n\nContext:\n${context}\n\nQuestion: ${message}`;
             const result = await model.generateContent(fullPrompt);
             responseText = result.response.text() || "I couldn't generate a response.";
-            tokensUsed = 0; // Gemini doesn't expose token count in same way
+            tokensUsed = 0;
           } catch (err) {
             console.error("Gemini error:", err);
-            responseText = "I apologize, but I'm having trouble processing your request. Please try again.";
+            responseText = "I apologize, but I'm having trouble processing your request. Please check your Gemini API key in settings.";
           }
-        } else if (openai) {
+        } else if (userOpenai || openai) {
           try {
-            const response = await openai.chat.completions.create({
+            const openaiClient = userOpenai || openai;
+            const response = await openaiClient!.chat.completions.create({
               model: "gpt-5",
               messages: [
                 { role: "system", content: systemPrompt },
@@ -448,11 +465,11 @@ Do not make up information. Always ground your answers in the provided sources.`
             tokensUsed = response.usage?.total_tokens || 0;
           } catch (err) {
             console.error("OpenAI error:", err);
-            responseText = "I apologize, but I'm having trouble processing your request. Please try again.";
+            responseText = "I apologize, but I'm having trouble processing your request. Please check your OpenAI API key in settings.";
           }
         } else {
-          // Fallback when neither is configured
-          responseText = `Based on your knowledge base, here's what I found:\n\n${relevantChunks[0].content.slice(0, 500)}...`;
+          // No API key configured
+          responseText = "Please configure an API key in Project Settings before using the chatbot.";
         }
       } else {
         responseText = "I don't have any relevant information in my knowledge base to answer that question. Please make sure you've uploaded documents containing information about this topic.";
