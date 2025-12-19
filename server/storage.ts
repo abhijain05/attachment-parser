@@ -143,19 +143,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Document chunks operations
-  async createChunks(chunks: { documentId: string; content: string; chunkIndex: number }[]): Promise<void> {
+  async createChunks(chunks: { documentId: string; content: string; chunkIndex: number; embedding?: number[] }[]): Promise<void> {
     if (chunks.length === 0) return;
     await db.insert(documentChunks).values(chunks);
   }
 
-  async searchChunks(projectId: string, query: string, limit = 5): Promise<(DocumentChunk & { documentName: string })[]> {
-    // Simple text search - in production, you'd use vector search
-    const queryLower = query.toLowerCase();
-    const results = await db
+  async searchChunks(projectId: string, query: string, limit = 5, queryEmbedding?: number[]): Promise<(DocumentChunk & { documentName: string; similarity?: number })[]> {
+    // Fetch all chunks for the project
+    const allChunks = await db
       .select({
         id: documentChunks.id,
         documentId: documentChunks.documentId,
         content: documentChunks.content,
+        embedding: documentChunks.embedding,
         chunkIndex: documentChunks.chunkIndex,
         metadata: documentChunks.metadata,
         createdAt: documentChunks.createdAt,
@@ -166,13 +166,34 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(documents.projectId, projectId),
-          eq(documents.status, "ready"),
-          sql`lower(${documentChunks.content}) LIKE ${'%' + queryLower + '%'}`
+          eq(documents.status, "ready")
         )
-      )
-      .limit(limit);
-    
-    return results;
+      );
+
+    if (allChunks.length === 0) return [];
+
+    // If we have query embedding, use semantic search
+    if (queryEmbedding && queryEmbedding.length > 0) {
+      const cosineSimilarity = (a: number[], b: number[]): number => {
+        const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
+        const magA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+        const magB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+        return magA && magB ? dotProduct / (magA * magB) : 0;
+      };
+
+      const scored = allChunks.map(chunk => ({
+        ...chunk,
+        similarity: chunk.embedding ? cosineSimilarity(queryEmbedding, chunk.embedding) : 0,
+      }));
+      
+      return scored.sort((a, b) => (b.similarity || 0) - (a.similarity || 0)).slice(0, limit);
+    }
+
+    // Fallback to keyword search
+    const queryLower = query.toLowerCase();
+    return allChunks
+      .filter(chunk => chunk.content.toLowerCase().includes(queryLower))
+      .slice(0, limit);
   }
 
   // Chatbot config operations

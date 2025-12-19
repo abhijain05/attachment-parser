@@ -124,6 +124,7 @@ export const documentChunks = pgTable("document_chunks", {
   documentId: varchar("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   chunkIndex: integer("chunk_index").notNull(),
+  embedding: jsonb("embedding").$type<number[]>(), // OpenAI embedding vector
   metadata: jsonb("metadata").$type<{ startChar?: number; endChar?: number }>(),
   createdAt: timestamp("created_at").defaultNow(),
 });

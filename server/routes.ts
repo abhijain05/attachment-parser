@@ -9,6 +9,28 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as pdfParse from "pdf-parse";
 import JSZip from "jszip";
 
+// Helper function for cosine similarity
+function cosineSimilarity(a: number[], b: number[]): number {
+  const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
+  const magA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+  const magB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+  return magA && magB ? dotProduct / (magA * magB) : 0;
+}
+
+// Generate embedding using OpenAI
+async function generateEmbedding(text: string, openaiClient: OpenAI): Promise<number[]> {
+  try {
+    const response = await openaiClient.embeddings.create({
+      model: "text-embedding-3-small",
+      input: text,
+    });
+    return response.data[0].embedding;
+  } catch (err) {
+    console.error("Error generating embedding:", err);
+    return [];
+  }
+}
+
 // Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -279,9 +301,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (async () => {
         try {
           const content = await extractText(req.file!.buffer, filename);
-          
-          // Just create chunks from whatever content we extracted
-          // Even if it's limited, let the AI work with what we have
           const chunks = chunkText(content);
           
           if (chunks.length === 0 || !content.trim()) {
@@ -290,16 +309,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
           
-          await storage.createChunks(
-            chunks.map((text, index) => ({
-              documentId: doc.id,
-              content: text,
-              chunkIndex: index,
-            }))
+          // Generate embeddings for chunks using OpenAI
+          const chunksWithEmbeddings = await Promise.all(
+            chunks.map(async (text, index) => {
+              let embedding: number[] = [];
+              if (openai) {
+                try {
+                  const response = await openai.embeddings.create({
+                    model: "text-embedding-3-small",
+                    input: text,
+                  });
+                  embedding = response.data[0].embedding;
+                } catch (err) {
+                  console.warn("Failed to generate embedding for chunk:", err);
+                }
+              }
+              return {
+                documentId: doc.id,
+                content: text,
+                chunkIndex: index,
+                embedding: embedding.length > 0 ? embedding : undefined,
+              };
+            })
           );
           
+          await storage.createChunks(chunksWithEmbeddings);
           await storage.updateDocumentStatus(doc.id, "ready", content);
-          console.log(`[Document] Successfully processed ${filename}: ${chunks.length} chunks created`);
+          console.log(`[Document] Successfully processed ${filename}: ${chunks.length} chunks created with embeddings`);
         } catch (err) {
           console.error("Error processing document:", err);
           await storage.updateDocumentStatus(doc.id, "error", "Error processing document. Please try a different file.");
@@ -477,8 +513,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userGemini = new GoogleGenerativeAI(userGeminiKey);
       }
 
+      // Generate embedding for query and search with semantic similarity
+      let queryEmbedding: number[] = [];
+      if (openai) {
+        try {
+          const response = await openai.embeddings.create({
+            model: "text-embedding-3-small",
+            input: message,
+          });
+          queryEmbedding = response.data[0].embedding;
+        } catch (err) {
+          console.warn("Failed to generate query embedding:", err);
+        }
+      }
+      
       // Search for relevant context from knowledge base
-      const relevantChunks = await storage.searchChunks(projectId, message, 5);
+      const relevantChunks = await storage.searchChunks(projectId, message, 5, queryEmbedding);
       
       let responseText = "";
       let tokensUsed = 0;
