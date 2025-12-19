@@ -247,10 +247,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (async () => {
         try {
           const content = await extractText(req.file!.buffer, filename);
+          
+          // Check if content looks like corrupted binary data
+          const isCorrupted = /^[!@#$%^&*()_+=\[\]{};:'",.<>?/\\|`~\s\d]{20,}$/.test(content.slice(0, 200));
+          if (isCorrupted) {
+            console.error("Detected corrupted PDF content - likely image-based PDF:", filename);
+            await storage.updateDocumentStatus(doc.id, "error", "PDF appears to be image-based or corrupted. Please upload a text-based PDF.");
+            return;
+          }
+          
+          // Check if content is meaningful (at least some real words)
+          const wordCount = content.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w)).length;
+          if (wordCount < 10) {
+            console.warn("Insufficient text extracted from PDF:", filename, `words: ${wordCount}`);
+            await storage.updateDocumentStatus(doc.id, "error", "Could not extract meaningful text from PDF. Ensure it's a text-based PDF, not an image-based one.");
+            return;
+          }
+          
           const chunks = chunkText(content);
           
+          // Validate chunks before storing
+          const validChunks = chunks.filter(chunk => {
+            const hasWords = /[a-zA-Z]{2,}/.test(chunk);
+            return hasWords && chunk.length > 10;
+          });
+          
+          if (validChunks.length === 0) {
+            console.error("No valid chunks extracted from document:", filename);
+            await storage.updateDocumentStatus(doc.id, "error", "No readable content found in document.");
+            return;
+          }
+          
           await storage.createChunks(
-            chunks.map((text, index) => ({
+            validChunks.map((text, index) => ({
               documentId: doc.id,
               content: text,
               chunkIndex: index,
@@ -260,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateDocumentStatus(doc.id, "ready", content);
         } catch (err) {
           console.error("Error processing document:", err);
-          await storage.updateDocumentStatus(doc.id, "error");
+          await storage.updateDocumentStatus(doc.id, "error", "Error processing document. Please try a different file.");
         }
       })();
 
