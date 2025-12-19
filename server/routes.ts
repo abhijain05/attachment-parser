@@ -67,11 +67,18 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
   }
   
   if (ext === "pdf") {
-    // Simple PDF text extraction - for production, use pdf-parse library
-    const text = buffer.toString("utf-8");
-    // Basic extraction of readable text from PDF
-    const readable = text.replace(/[^\x20-\x7E\n\r]/g, " ").replace(/\s+/g, " ").trim();
-    return readable || "PDF content could not be extracted";
+    // Extract readable text from PDF binary
+    const text = buffer.toString("latin1");
+    // Find text between standard PDF delimiters and clean up
+    const matches = text.match(/BT[\s\S]*?ET/g) || [];
+    const extracted = matches.map(m => {
+      return m.replace(/\(([^)]*)\)/g, "$1").replace(/[<>[\]{}()]/g, " ");
+    }).join(" ");
+    
+    // Fallback: extract any printable ASCII text
+    const printable = text.replace(/[^\x20-\x7E\n\r]/g, " ").replace(/\s+/g, " ").trim();
+    const result = extracted.trim() || printable;
+    return result || "PDF content could not be extracted";
   }
   
   return "";
