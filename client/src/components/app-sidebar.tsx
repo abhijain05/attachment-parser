@@ -46,6 +46,11 @@ const projectMenuItems = [
     icon: FileText,
   },
   {
+    title: "Test Chatbot",
+    url: "/test-chat",
+    icon: MessageSquare,
+  },
+  {
     title: "Chatbot Builder",
     url: "/chatbot",
     icon: MessageSquare,
