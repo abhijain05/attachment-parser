@@ -1,0 +1,191 @@
+Replit Prompt – Enhancement to Existing Knowledge AI App
+
+Context (Important):
+This project is an enhancement to an existing Knowledge AI platform.
+The current system already supports:
+
+User login
+
+Document upload (PDF, DOCX, TXT, MD, URLs)
+
+Text extraction, chunking, and embedding storage
+
+AI chatbot that answers user questions using document embeddings
+
+A generated JavaScript embed script that users add to their website to enable AI chat
+
+Do not redesign these existing features.
+Only extend the system with the features described below.
+
+Enhancement: Dual Chat Mode (AI + Live Owner)
+Goal
+
+Add a dual interaction model so that:
+
+Website visitors can chat with AI (existing behavior)
+
+Website owners can see visitors in real time and chat with them directly
+
+This enhancement turns the Knowledge AI app into:
+
+An AI help assistant
+
+A live human support & analytics platform
+
+New Features to Add
+1. Visitor Session Tracking (Embedded Script)
+
+Enhance the existing embed script so that:
+
+Each website visitor gets a unique session ID
+
+Session metadata is captured:
+
+Page URL
+
+Timestamp
+
+Referrer
+
+Chat mode (AI / Live)
+
+Session is linked to the website owner’s account
+
+Owner should be able to see active visitors in real time.
+
+2. AI Chat Mode (Existing – Extend Only)
+
+Keep AI chat behavior unchanged.
+
+Store AI chat history per visitor session.
+
+Owner can view:
+
+Visitor questions
+
+AI answers
+
+Duration of interaction
+
+Pages visited
+
+3. Live Owner Chat Mode (New)
+
+Add a “Live Chat with Owner” capability:
+
+Owner Controls
+
+Owner can enable / disable Live Chat from dashboard.
+
+Owner sees a list of:
+
+Active visitors
+
+Visitors currently chatting with AI
+
+Visitors requesting live chat
+
+Visitor Experience
+
+If Live Chat is enabled:
+
+Visitor sees a button: “Chat with Website Owner”
+
+No login required for visitor.
+
+Real-Time Communication
+
+Implement real-time messaging using WebSockets / Socket.IO.
+
+Owner and visitor can chat directly.
+
+Owner can join or leave any visitor chat.
+
+4. Unified Chat History
+
+Store and separate:
+
+AI chat history
+
+Owner–visitor chat history
+
+Owner dashboard must allow:
+
+Viewing chat history per visitor
+
+Switching between AI and Live chat logs
+
+Searching and filtering past chats
+
+5. Analytics Dashboard (Enhancement)
+
+Extend the dashboard to show:
+
+Total visitors
+
+Active visitors (real-time)
+
+AI chats handled
+
+Live chats handled
+
+Most common questions
+
+Pages with highest engagement
+
+6. Role & Access Control
+
+Website Owner (Logged-in User):
+
+Can see only their own visitors and chats
+
+Can chat with visitors
+
+Can view analytics
+
+Visitor:
+
+Can chat with AI
+
+Can chat with owner if enabled
+
+No access to dashboard or other users
+
+7. Technical Constraints
+
+Reuse existing backend and database where possible.
+
+Add new tables/collections only if required:
+
+visitor_sessions
+
+live_chat_messages
+
+Use the same authentication and user isolation model.
+
+Embeddings and AI logic must remain unchanged.
+
+Expected Outcome
+
+After this enhancement:
+
+Website owners can understand who is visiting their website
+
+Visitors can get instant AI help
+
+Owners can step in and talk to visitors live
+
+All interactions are logged and visible inside the Knowledge AI app
+
+Important Instruction to Replit
+
+This is an extension, not a rewrite.
+Focus on:
+
+Minimal disruption
+
+Clear separation between AI chat and Live chat
+
+Real-time reliability
+
+Clean UI/UX integration
