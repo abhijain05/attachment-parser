@@ -37,11 +37,12 @@ export default function TestChat() {
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
-      return await apiRequest("POST", "/api/chat", {
+      const res = await apiRequest("POST", "/api/chat", {
         projectId: selectedProject,
         sessionId: sessionId || undefined,
         message,
       });
+      return res.json();
     },
     onSuccess: (data: ChatResponse) => {
       console.log("[TestChat] Received response:", { message: data.message, messageLength: data.message?.length });
