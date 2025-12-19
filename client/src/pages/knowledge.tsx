@@ -172,7 +172,7 @@ export default function Knowledge() {
   }, [selectedProject, toast]);
 
   const processFiles = (files: File[]) => {
-    const validTypes = [".pdf", ".txt", ".md", ".markdown"];
+    const validTypes = [".pdf", ".txt", ".md", ".markdown", ".docx"];
     const validFiles = files.filter((file) => {
       const ext = "." + file.name.split(".").pop()?.toLowerCase();
       return validTypes.includes(ext);
@@ -181,7 +181,7 @@ export default function Knowledge() {
     if (validFiles.length !== files.length) {
       toast({
         title: "Some files skipped",
-        description: "Only PDF, TXT, and Markdown files are supported.",
+        description: "Only PDF, DOCX, TXT, and Markdown files are supported.",
         variant: "destructive",
       });
     }
@@ -225,6 +225,8 @@ export default function Knowledge() {
     switch (type) {
       case "pdf":
         return <File className="h-5 w-5 text-red-500" />;
+      case "docx":
+        return <FileText className="h-5 w-5 text-blue-600" />;
       case "txt":
         return <FileText className="h-5 w-5 text-gray-500" />;
       case "md":
@@ -305,14 +307,14 @@ export default function Knowledge() {
             {isDragging ? "Drop files here" : "Upload Documents"}
           </h3>
           <p className="text-muted-foreground text-center mb-4 max-w-sm">
-            Drag and drop PDF, TXT, or Markdown files, or click to browse.
+            Drag and drop PDF, DOCX, TXT, or Markdown files, or click to browse.
           </p>
           <input
             type="file"
             id="file-upload"
             className="hidden"
             multiple
-            accept=".pdf,.txt,.md,.markdown"
+            accept=".pdf,.docx,.txt,.md,.markdown"
             onChange={handleFileInput}
             disabled={!selectedProject}
           />
