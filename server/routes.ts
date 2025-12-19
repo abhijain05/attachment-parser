@@ -7,6 +7,7 @@ import { z } from "zod";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as pdfParse from "pdf-parse";
+import JSZip from "jszip";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -63,7 +64,6 @@ function chunkText(text: string, maxChunkSize = 1000): string[] {
 async function extractDocxText(buffer: Buffer): Promise<string> {
   try {
     // DOCX is a ZIP file, extract and parse document.xml
-    const JSZip = require("jszip");
     const zip = new JSZip();
     await zip.loadAsync(buffer);
     
