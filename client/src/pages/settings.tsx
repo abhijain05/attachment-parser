@@ -24,6 +24,7 @@ export default function Settings() {
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [openaiKey, setOpenaiKey] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
+  const [aiProvider, setAiProvider] = useState<"openai" | "gemini">("openai");
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -47,13 +48,14 @@ export default function Settings() {
       return await apiRequest("PUT", `/api/chatbot-config/${selectedProject}`, {
         openaiApiKey: openaiKey || undefined,
         geminiApiKey: geminiKey || undefined,
+        aiProvider,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/chatbot-config", selectedProject] });
       toast({
         title: "Settings saved",
-        description: "Your API keys have been saved securely.",
+        description: "Your API keys and provider have been saved securely.",
       });
     },
     onError: () => {
@@ -69,7 +71,16 @@ export default function Settings() {
     setSelectedProject(projectId);
     setOpenaiKey("");
     setGeminiKey("");
+    setAiProvider("openai");
   };
+
+  // Update provider when config loads
+  if (config && aiProvider === "openai") {
+    const provider = config.aiProvider as "openai" | "gemini";
+    if (provider && provider !== aiProvider) {
+      setAiProvider(provider);
+    }
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6 max-w-3xl mx-auto">
@@ -109,6 +120,26 @@ export default function Settings() {
           </TabsList>
 
           <TabsContent value="api-keys" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Provider</CardTitle>
+                <CardDescription>
+                  Choose which AI provider to use for generating responses
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Select value={aiProvider} onValueChange={(value) => setAiProvider(value as "openai" | "gemini")}>
+                  <SelectTrigger className="w-64" data-testid="select-ai-provider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">OpenAI (GPT-5)</SelectItem>
+                    <SelectItem value="gemini">Google Gemini</SelectItem>
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>API Keys</CardTitle>
