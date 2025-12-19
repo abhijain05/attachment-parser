@@ -60,6 +60,13 @@ export default function Knowledge() {
 
   const { data: documents, isLoading } = useQuery<Document[]>({
     queryKey: ["/api/documents", selectedProject],
+    queryFn: async () => {
+      const response = await fetch(`/api/documents?projectId=${selectedProject}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch documents");
+      return response.json();
+    },
     enabled: !!selectedProject,
   });
 
