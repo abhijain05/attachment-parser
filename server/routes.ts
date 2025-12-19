@@ -6,6 +6,7 @@ import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import * as pdfParse from "pdf-parse";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -67,18 +68,23 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
   }
   
   if (ext === "pdf") {
-    // Extract readable text from PDF binary
-    const text = buffer.toString("latin1");
-    // Find text between standard PDF delimiters and clean up
-    const matches = text.match(/BT[\s\S]*?ET/g) || [];
-    const extracted = matches.map(m => {
-      return m.replace(/\(([^)]*)\)/g, "$1").replace(/[<>[\]{}()]/g, " ");
-    }).join(" ");
-    
-    // Fallback: extract any printable ASCII text
-    const printable = text.replace(/[^\x20-\x7E\n\r]/g, " ").replace(/\s+/g, " ").trim();
-    const result = extracted.trim() || printable;
-    return result || "PDF content could not be extracted";
+    try {
+      const data = await pdfParse.default(buffer);
+      const text = data.text || "";
+      
+      if (!text.trim()) {
+        console.warn("PDF extracted no text content:", filename);
+        return "PDF content could not be extracted";
+      }
+      
+      // Clean up extracted text - remove excessive whitespace
+      return text
+        .replace(/\s+/g, " ")
+        .trim();
+    } catch (err) {
+      console.error("Error parsing PDF:", filename, err);
+      return "Failed to extract PDF content";
+    }
   }
   
   return "";
@@ -450,7 +456,10 @@ Do not make up information. Always ground your answers in the provided sources.`
             const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
             const fullPrompt = `${systemPrompt}\n\nContext:\n${context}\n\nQuestion: ${message}`;
             const result = await model.generateContent(fullPrompt);
-            responseText = result.response.text() || "I couldn't generate a response.";
+            responseText = result.response.text()?.trim() || "I couldn't generate a response.";
+            if (!responseText || responseText.length === 0) {
+              responseText = "I couldn't generate a response.";
+            }
             tokensUsed = 0;
           } catch (err) {
             console.error("Gemini error:", err);
@@ -468,7 +477,10 @@ Do not make up information. Always ground your answers in the provided sources.`
               max_completion_tokens: 1024,
             });
 
-            responseText = response.choices[0].message.content || "I couldn't generate a response.";
+            responseText = response.choices[0].message.content?.trim() || "I couldn't generate a response.";
+            if (!responseText || responseText.length === 0) {
+              responseText = "I couldn't generate a response.";
+            }
             tokensUsed = response.usage?.total_tokens || 0;
           } catch (err) {
             console.error("OpenAI error:", err);
