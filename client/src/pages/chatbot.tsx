@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,7 @@ import {
   MessageCircle,
   Send,
   X,
-  Save,
-  Loader,
-  ThumbsUp,
-  ThumbsDown,
-  Copy
+  Save
 } from "lucide-react";
 import type { Project, ChatbotConfig } from "@shared/schema";
 
@@ -47,17 +43,6 @@ export default function ChatbotBuilder() {
   });
   const [previewMessage, setPreviewMessage] = useState("");
   const [previewMessages, setPreviewMessages] = useState<{ role: string; content: string }[]>([]);
-  const [isChatOpen, setIsChatOpen] = useState(true);
-  const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [previewMessages]);
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -113,17 +98,9 @@ export default function ChatbotBuilder() {
     setPreviewMessages((prev) => [
       ...prev,
       { role: "user", content: previewMessage },
+      { role: "assistant", content: "This is a preview response. In production, I would answer based on your uploaded knowledge base." },
     ]);
     setPreviewMessage("");
-    
-    setIsTyping(true);
-    setTimeout(() => {
-      setPreviewMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "This is a preview response. In production, I would answer based on your uploaded knowledge base." },
-      ]);
-      setIsTyping(false);
-    }, 1200);
   };
 
   return (
@@ -375,176 +352,101 @@ export default function ChatbotBuilder() {
             </Tabs>
           </div>
 
-          <div className="flex flex-col gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Live Preview</CardTitle>
-                <CardDescription>
-                  See how your chatbot will appear on your website.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-muted/30 rounded-lg p-4 min-h-[500px] flex flex-col items-center justify-center overflow-hidden">
-                  <div className="text-xs text-muted-foreground mb-4">Your Website Preview</div>
-                  
-                  <div className="w-full max-w-sm relative">
-                    {!isChatOpen ? (
-                      <div className="flex justify-end">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Live Preview</CardTitle>
+              <CardDescription>
+                See how your chatbot will appear on your website.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="relative bg-muted/30 rounded-lg p-4 min-h-[400px]">
+                <div className="text-xs text-muted-foreground mb-2 text-center">
+                  Your Website Preview
+                </div>
+
+                <div
+                  className={`absolute ${
+                    config.position === "bottom-right" ? "right-4 bottom-4" : "left-4 bottom-4"
+                  }`}
+                >
+                  <div
+                    className="w-72 rounded-lg shadow-lg overflow-hidden"
+                    style={{ backgroundColor: config.backgroundColor }}
+                  >
+                    <div
+                      className="px-4 py-3 flex items-center justify-between"
+                      style={{ backgroundColor: config.primaryColor }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="h-5 w-5 text-white" />
+                        <span className="text-white font-medium text-sm">
+                          {config.botName}
+                        </span>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-white/80">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="h-48 overflow-y-auto p-3 space-y-3">
+                      <div
+                        className="text-sm p-2 rounded-lg max-w-[85%]"
+                        style={{
+                          backgroundColor: `${config.primaryColor}20`,
+                          color: config.textColor,
+                        }}
+                      >
+                        {config.welcomeMessage}
+                      </div>
+                      {previewMessages.map((msg, i) => (
+                        <div
+                          key={i}
+                          className={`text-sm p-2 rounded-lg max-w-[85%] ${
+                            msg.role === "user" ? "ml-auto bg-muted" : ""
+                          }`}
+                          style={{
+                            backgroundColor: msg.role === "assistant" ? `${config.primaryColor}20` : undefined,
+                            color: config.textColor,
+                          }}
+                        >
+                          {msg.content}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="p-3 border-t" style={{ borderColor: `${config.textColor}20` }}>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Type a message..."
+                          value={previewMessage}
+                          onChange={(e) => setPreviewMessage(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handlePreviewSend()}
+                          className="text-sm"
+                          style={{ color: config.textColor }}
+                        />
                         <Button
                           size="icon"
-                          className="h-12 w-12 rounded-full shadow-lg hover:scale-110 transition-transform"
+                          onClick={handlePreviewSend}
                           style={{ backgroundColor: config.primaryColor }}
-                          onClick={() => setIsChatOpen(true)}
-                          data-testid="button-open-preview-chat"
                         >
-                          <MessageSquare className="h-5 w-5 text-white" />
+                          <Send className="h-4 w-4" />
                         </Button>
                       </div>
-                    ) : (
-                      <div
-                        className="w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[450px] animate-in fade-in slide-in-from-bottom-4 duration-300"
-                        style={{ backgroundColor: config.backgroundColor }}
-                      >
-                        <div
-                          className="px-4 py-4 flex items-center justify-between flex-shrink-0"
-                          style={{ backgroundColor: config.primaryColor }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
-                              <MessageCircle className="h-5 w-5 text-white" />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-white font-semibold text-sm">
-                                {config.botName}
-                              </span>
-                              <span className="text-white/70 text-xs">Always here to help</span>
-                            </div>
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 hover:bg-white/20"
-                            onClick={() => setIsChatOpen(false)}
-                            data-testid="button-close-preview-chat"
-                          >
-                            <X className="h-4 w-4 text-white" />
-                          </Button>
-                        </div>
+                    </div>
+                  </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-transparent to-muted/5">
-                          <div
-                            className="text-sm p-3 rounded-xl max-w-[85%] rounded-bl-none animate-in fade-in slide-in-from-left-2 duration-500"
-                            style={{
-                              backgroundColor: `${config.primaryColor}15`,
-                              color: config.textColor,
-                              border: `1px solid ${config.primaryColor}30`,
-                            }}
-                          >
-                            {config.welcomeMessage}
-                          </div>
-                          
-                          {previewMessages.map((msg, i) => (
-                            <div
-                              key={i}
-                              className={`text-sm p-3 rounded-xl max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-300 ${
-                                msg.role === "user" 
-                                  ? "ml-auto rounded-br-none" 
-                                  : "rounded-bl-none"
-                              }`}
-                              style={{
-                                backgroundColor: msg.role === "assistant" 
-                                  ? `${config.primaryColor}15`
-                                  : config.primaryColor,
-                                color: msg.role === "assistant" ? config.textColor : "white",
-                                border: msg.role === "assistant" ? `1px solid ${config.primaryColor}30` : "none",
-                              }}
-                            >
-                              {msg.content}
-                            </div>
-                          ))}
-                          
-                          {isTyping && (
-                            <div
-                              className="text-sm p-3 rounded-xl max-w-[85%] rounded-bl-none flex items-center gap-2 animate-in fade-in duration-300"
-                              style={{
-                                backgroundColor: `${config.primaryColor}15`,
-                                color: config.textColor,
-                                border: `1px solid ${config.primaryColor}30`,
-                              }}
-                            >
-                              <Loader className="h-3 w-3 animate-spin" />
-                              <span>Typing</span>
-                            </div>
-                          )}
-                          <div ref={messagesEndRef} />
-                        </div>
-
-                        <div 
-                          className="p-3 border-t flex-shrink-0" 
-                          style={{ borderColor: `${config.textColor}15` }}
-                        >
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="Type a message..."
-                              value={previewMessage}
-                              onChange={(e) => setPreviewMessage(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && handlePreviewSend()}
-                              disabled={isTyping}
-                              className="text-sm bg-muted/50"
-                              style={{ color: config.textColor }}
-                              data-testid="input-preview-message"
-                            />
-                            <Button
-                              size="icon"
-                              onClick={handlePreviewSend}
-                              disabled={isTyping || !previewMessage.trim()}
-                              className="flex-shrink-0 text-white hover:scale-105 transition-transform"
-                              style={{ backgroundColor: config.primaryColor }}
-                              data-testid="button-preview-send"
-                            >
-                              <Send className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <Button
+                    size="icon"
+                    className="absolute -bottom-2 right-0 h-12 w-12 rounded-full shadow-lg"
+                    style={{ backgroundColor: config.primaryColor }}
+                  >
+                    <MessageSquare className="h-5 w-5 text-white" />
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <span className="text-2xl">✨</span>
-                  Modern Chat Features
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-sm">✓</div>
-                  <div>
-                    <p className="font-medium text-sm">Typing Indicators</p>
-                    <p className="text-xs text-muted-foreground">Users see when your bot is responding</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-sm">✓</div>
-                  <div>
-                    <p className="font-medium text-sm">Smooth Animations</p>
-                    <p className="text-xs text-muted-foreground">Messages fade in with smooth transitions</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-sm">✓</div>
-                  <div>
-                    <p className="font-medium text-sm">Open & Close Button</p>
-                    <p className="text-xs text-muted-foreground">Users can minimize the chat anytime</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
