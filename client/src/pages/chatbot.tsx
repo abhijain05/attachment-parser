@@ -43,6 +43,7 @@ export default function ChatbotBuilder() {
   });
   const [previewMessage, setPreviewMessage] = useState("");
   const [previewMessages, setPreviewMessages] = useState<{ role: string; content: string }[]>([]);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(true);
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -365,85 +366,108 @@ export default function ChatbotBuilder() {
                   Your Website Preview
                 </div>
 
-                <div
-                  className={`absolute ${
-                    config.position === "bottom-right" ? "right-4 bottom-4" : "left-4 bottom-4"
-                  }`}
-                >
+                {isPreviewOpen ? (
                   <div
-                    className="w-72 rounded-lg shadow-lg overflow-hidden"
-                    style={{ backgroundColor: config.backgroundColor }}
+                    className={`absolute ${
+                      config.position === "bottom-right" ? "right-4 bottom-4" : "left-4 bottom-4"
+                    }`}
                   >
                     <div
-                      className="px-4 py-3 flex items-center justify-between"
-                      style={{ backgroundColor: config.primaryColor }}
+                      className="w-72 rounded-lg shadow-lg overflow-hidden"
+                      style={{ backgroundColor: config.backgroundColor }}
                     >
-                      <div className="flex items-center gap-2">
-                        <MessageCircle className="h-5 w-5 text-white" />
-                        <span className="text-white font-medium text-sm">
-                          {config.botName}
-                        </span>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-white/80">
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="h-48 overflow-y-auto p-3 space-y-3">
                       <div
-                        className="text-sm p-2 rounded-lg max-w-[85%]"
-                        style={{
-                          backgroundColor: `${config.primaryColor}20`,
-                          color: config.textColor,
-                        }}
+                        className="px-4 py-3 flex items-center justify-between"
+                        style={{ backgroundColor: config.primaryColor }}
                       >
-                        {config.welcomeMessage}
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="h-5 w-5 text-white" />
+                          <span className="text-white font-medium text-sm">
+                            {config.botName}
+                          </span>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 text-white/80"
+                          onClick={() => setIsPreviewOpen(false)}
+                          data-testid="button-close-preview"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                      {previewMessages.map((msg, i) => (
+
+                      <div className="h-48 overflow-y-auto p-3 space-y-3">
                         <div
-                          key={i}
-                          className={`text-sm p-2 rounded-lg max-w-[85%] ${
-                            msg.role === "user" ? "ml-auto bg-muted" : ""
-                          }`}
+                          className="text-sm p-2 rounded-lg max-w-[85%]"
                           style={{
-                            backgroundColor: msg.role === "assistant" ? `${config.primaryColor}20` : undefined,
+                            backgroundColor: `${config.primaryColor}20`,
                             color: config.textColor,
                           }}
                         >
-                          {msg.content}
+                          {config.welcomeMessage}
                         </div>
-                      ))}
-                    </div>
+                        {previewMessages.map((msg, i) => (
+                          <div
+                            key={i}
+                            className={`text-sm p-2 rounded-lg max-w-[85%] ${
+                              msg.role === "user" ? "ml-auto bg-muted" : ""
+                            }`}
+                            style={{
+                              backgroundColor: msg.role === "assistant" ? `${config.primaryColor}20` : undefined,
+                              color: config.textColor,
+                            }}
+                          >
+                            {msg.content}
+                          </div>
+                        ))}
+                      </div>
 
-                    <div className="p-3 border-t" style={{ borderColor: `${config.textColor}20` }}>
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Type a message..."
-                          value={previewMessage}
-                          onChange={(e) => setPreviewMessage(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handlePreviewSend()}
-                          className="text-sm"
-                          style={{ color: config.textColor }}
-                        />
-                        <Button
-                          size="icon"
-                          onClick={handlePreviewSend}
-                          style={{ backgroundColor: config.primaryColor }}
-                        >
-                          <Send className="h-4 w-4" />
-                        </Button>
+                      <div className="p-3 border-t" style={{ borderColor: `${config.textColor}20` }}>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Type a message..."
+                            value={previewMessage}
+                            onChange={(e) => setPreviewMessage(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handlePreviewSend()}
+                            className="text-sm"
+                            style={{ color: config.textColor }}
+                          />
+                          <Button
+                            size="icon"
+                            onClick={handlePreviewSend}
+                            style={{ backgroundColor: config.primaryColor }}
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
+                    <Button
+                      size="icon"
+                      className={`absolute -bottom-2 ${
+                        config.position === "bottom-right" ? "right-0" : "left-0"
+                      } h-12 w-12 rounded-full shadow-lg`}
+                      style={{ backgroundColor: config.primaryColor }}
+                      data-testid="button-toggle-preview"
+                    >
+                      <MessageSquare className="h-5 w-5 text-white" />
+                    </Button>
+                  </div>
+                ) : (
                   <Button
                     size="icon"
-                    className="absolute -bottom-2 right-0 h-12 w-12 rounded-full shadow-lg"
+                    className={`absolute h-12 w-12 rounded-full shadow-lg ${
+                      config.position === "bottom-right" ? "right-4 bottom-4" : "left-4 bottom-4"
+                    }`}
                     style={{ backgroundColor: config.primaryColor }}
+                    onClick={() => setIsPreviewOpen(true)}
+                    data-testid="button-open-preview"
                   >
                     <MessageSquare className="h-5 w-5 text-white" />
                   </Button>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
