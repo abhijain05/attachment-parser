@@ -8,9 +8,24 @@ import {
   boolean,
   jsonb,
   index,
+  bigserial,
+  customType,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Custom type for pgvector
+const vector = customType<{ data: number[] }>({
+  dataType() {
+    return "vector(768)";
+  },
+  toDriver(value) {
+    return value;
+  },
+  fromDriver(value) {
+    return value;
+  },
+});
 
 // Session storage table for authentication
 export const sessions = pgTable(
@@ -137,6 +152,33 @@ export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
 }));
 
 export type DocumentChunk = typeof documentChunks.$inferSelect;
+
+// Document embeddings using pgvector (for VPS PostgreSQL integration)
+export const documentEmbeddings = pgTable(
+  "document_embeddings",
+  {
+    id: bigserial("id").primaryKey(),
+    userId: varchar("user_id").notNull(), // UUID as varchar for flexibility
+    documentId: varchar("document_id").notNull(), // UUID as varchar
+    chunkIndex: integer("chunk_index").notNull(),
+    content: text("content").notNull(),
+    embedding: vector("embedding").notNull(), // pgvector(768)
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_user_id").on(table.userId),
+    index("idx_document_id").on(table.documentId),
+  ]
+);
+
+export type DocumentEmbedding = typeof documentEmbeddings.$inferSelect;
+
+export const insertDocumentEmbeddingSchema = createInsertSchema(documentEmbeddings).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDocumentEmbedding = z.infer<typeof insertDocumentEmbeddingSchema>;
 
 // Chatbot configuration per project
 export const chatbotConfigs = pgTable("chatbot_configs", {

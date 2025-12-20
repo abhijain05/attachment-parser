@@ -1,0 +1,133 @@
+PostgreSQL 15 on VPS
+
+pgvector installed & working
+
+Table + index already created manually
+
+No existing data to migrate
+
+Replit must only use, not create, schema
+
+✅ FINAL REPLIT PROMPT — Use Existing pgvector on VPS
+
+Context (Very Important)
+This application is already deployed and connected to my VPS PostgreSQL (Postgres 15).
+The database already has:
+
+pgvector extension installed and enabled
+
+A pre-created table document_embeddings
+
+A vector index created using hnsw
+
+There is no existing embedding data, and no backup is required.
+
+❌ Do NOT create tables at runtime
+❌ Do NOT store embeddings in JSONB
+❌ Do NOT introduce any new database or vector store
+
+Your task is to use the existing pgvector-based schema.
+
+🎯 Objective
+
+Replace the current JSONB-based embedding storage and search logic with native pgvector similarity search using the existing PostgreSQL setup on my VPS.
+
+📦 Existing Database Schema (DO NOT MODIFY)
+-- pgvector extension already enabled
+-- Table already exists
+
+document_embeddings (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL,
+  document_id UUID NOT NULL,
+  chunk_index INT NOT NULL,
+  content TEXT NOT NULL,
+  embedding VECTOR(768) NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMP
+);
+
+
+Embedding dimension is 768
+
+Embedding model used outputs 768-dimensional vectors
+
+JSONB is used only for metadata, never for embeddings
+
+🔧 Required Application Changes
+1️⃣ Insert Embeddings (MANDATORY)
+
+When storing embeddings:
+
+Pass embeddings as a numeric float array
+
+Cast to vector type
+
+Use the existing table
+
+Correct SQL pattern:
+
+INSERT INTO document_embeddings
+(user_id, document_id, chunk_index, content, embedding, metadata)
+VALUES ($1, $2, $3, $4, $5::vector, $6);
+
+
+❌ Do NOT stringify embeddings
+❌ Do NOT store embeddings in JSONB
+
+2️⃣ Similarity Search (CRITICAL)
+
+Replace all JSONB similarity logic with pgvector cosine distance search.
+
+Correct query pattern:
+
+SELECT content, metadata
+FROM document_embeddings
+WHERE user_id = $1
+ORDER BY embedding <=> $2::vector
+LIMIT 5;
+
+
+Rules:
+
+Always filter by user_id (multi-tenant isolation)
+
+<=> operator must be used
+
+The query embedding must be the same dimension (768)
+
+3️⃣ Embedding Rules (Strict)
+
+Use the same embedding model for:
+
+document chunks
+
+user queries
+
+Do NOT re-embed documents on every chat
+
+Embeddings are generated once per chunk
+
+4️⃣ What NOT to Do (Strict)
+
+❌ Do NOT use JSONB for embeddings
+❌ Do NOT use keyword or LIKE-based search
+❌ Do NOT create tables or extensions at runtime
+❌ Do NOT add FAISS, Pinecone, or external vector DBs
+❌ Do NOT change authentication or user model
+
+✅ Expected Result
+
+After this change:
+
+All embeddings are stored in pgvector
+
+Semantic retrieval uses native PostgreSQL vector search
+
+Retrieval accuracy improves significantly
+
+The app uses only the existing VPS PostgreSQL
+
+🧠 One-Line Instruction (for Replit)
+
+“Use my existing PostgreSQL pgvector table (document_embeddings) to store and search embeddings with cosine similarity. Do not use JSONB for embeddings.”
