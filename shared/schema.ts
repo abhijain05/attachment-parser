@@ -157,7 +157,7 @@ export type DocumentChunk = typeof documentChunks.$inferSelect;
 export const documentEmbeddings = pgTable(
   "document_embeddings",
   {
-    id: bigserial("id").primaryKey(),
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
     userId: varchar("user_id").notNull(), // UUID as varchar for flexibility
     documentId: varchar("document_id").notNull(), // UUID as varchar
     chunkIndex: integer("chunk_index").notNull(),
