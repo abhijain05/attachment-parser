@@ -3,6 +3,7 @@ import {
   projects,
   documents,
   documentChunks,
+  documentEmbeddings,
   chatbotConfigs,
   chatSessions,
   chatMessages,
@@ -16,6 +17,8 @@ import {
   type Document,
   type InsertDocument,
   type DocumentChunk,
+  type DocumentEmbedding,
+  type InsertDocumentEmbedding,
   type ChatbotConfig,
   type InsertChatbotConfig,
   type ChatSession,
@@ -92,6 +95,10 @@ export interface IStorage {
     visitorSession: VisitorSession;
     messages: LiveChatMessage[];
   }[]>;
+
+  // Document embeddings operations
+  createDocumentEmbeddings(embeddings: InsertDocumentEmbedding[]): Promise<void>;
+  getDocumentEmbeddings(userId: string, documentId: string): Promise<DocumentEmbedding[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -384,6 +391,16 @@ export class DatabaseStorage implements IStorage {
       result.push({ visitorSession: session, messages });
     }
     return result;
+  }
+
+  // Document embeddings operations
+  async createDocumentEmbeddings(embeddings: InsertDocumentEmbedding[]): Promise<void> {
+    if (embeddings.length === 0) return;
+    await db.insert(documentEmbeddings).values(embeddings);
+  }
+
+  async getDocumentEmbeddings(userId: string, documentId: string): Promise<DocumentEmbedding[]> {
+    return db.select().from(documentEmbeddings).where(and(eq(documentEmbeddings.userId, userId), eq(documentEmbeddings.documentId, documentId))).orderBy(documentEmbeddings.chunkIndex);
   }
 }
 

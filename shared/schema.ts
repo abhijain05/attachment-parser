@@ -8,7 +8,6 @@ import {
   boolean,
   jsonb,
   index,
-  bigserial,
   customType,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -157,7 +156,7 @@ export type DocumentChunk = typeof documentChunks.$inferSelect;
 export const documentEmbeddings = pgTable(
   "document_embeddings",
   {
-    id: bigserial("id").primaryKey(),
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     userId: varchar("user_id").notNull(), // UUID as varchar for flexibility
     documentId: varchar("document_id").notNull(), // UUID as varchar
     chunkIndex: integer("chunk_index").notNull(),
