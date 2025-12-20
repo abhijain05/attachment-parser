@@ -57,11 +57,6 @@ const projectMenuItems = [
     icon: MessageSquare,
   },
   {
-    title: "Active Visitors",
-    url: "/visitors",
-    icon: MessageSquare,
-  },
-  {
     title: "Settings",
     url: "/settings",
     icon: Sliders,
@@ -75,6 +70,14 @@ const projectMenuItems = [
     title: "MCP Server",
     url: "/mcp",
     icon: Server,
+  },
+];
+
+const activeToolsMenuItems = [
+  {
+    title: "Active Visitors",
+    url: "/visitors",
+    icon: MessageSquare,
   },
   {
     title: "Analytics",
@@ -141,6 +144,32 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {projectMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                    data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                  >
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Active Tools & Analytics
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {activeToolsMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
