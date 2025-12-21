@@ -22,9 +22,11 @@ export default function Settings() {
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [showVpsKey, setShowVpsKey] = useState(false);
   const [openaiKey, setOpenaiKey] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
-  const [aiProvider, setAiProvider] = useState<"openai" | "gemini">("openai");
+  const [vpsApiKey, setVpsApiKey] = useState("");
+  const [aiProvider, setAiProvider] = useState<"openai" | "gemini" | "vps">("openai");
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -71,12 +73,13 @@ export default function Settings() {
     setSelectedProject(projectId);
     setOpenaiKey("");
     setGeminiKey("");
+    setVpsApiKey("");
     setAiProvider("openai");
   };
 
   // Update provider when config loads
   if (config && aiProvider === "openai") {
-    const provider = config.aiProvider as "openai" | "gemini";
+    const provider = config.aiProvider as "openai" | "gemini" | "vps";
     if (provider && provider !== aiProvider) {
       setAiProvider(provider);
     }
@@ -128,13 +131,14 @@ export default function Settings() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Select value={aiProvider} onValueChange={(value) => setAiProvider(value as "openai" | "gemini")}>
+                <Select value={aiProvider} onValueChange={(value) => setAiProvider(value as "openai" | "gemini" | "vps")}>
                   <SelectTrigger className="w-64" data-testid="select-ai-provider">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="openai">OpenAI (GPT-5)</SelectItem>
                     <SelectItem value="gemini">Google Gemini</SelectItem>
+                    <SelectItem value="vps">VPS (Self-Hosted Ollama)</SelectItem>
                   </SelectContent>
                 </Select>
               </CardContent>
@@ -200,10 +204,36 @@ export default function Settings() {
                   </p>
                 </div>
 
+                {/* VPS API Key */}
+                <div className="space-y-2">
+                  <Label htmlFor="vps-key">VPS API Key (Self-Hosted Ollama)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="vps-key"
+                      type={showVpsKey ? "text" : "password"}
+                      placeholder="Your VPS API key..."
+                      value={vpsApiKey}
+                      onChange={(e) => setVpsApiKey(e.target.value)}
+                      data-testid="input-vps-key"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowVpsKey(!showVpsKey)}
+                      data-testid="button-toggle-vps"
+                    >
+                      {showVpsKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    API key for your self-hosted Ollama embeddings server. Leave empty if not using VPS provider.
+                  </p>
+                </div>
+
                 <div className="border-t pt-4 flex gap-2">
                   <Button
                     onClick={() => saveMutation.mutate()}
-                    disabled={!openaiKey && !geminiKey || saveMutation.isPending}
+                    disabled={!openaiKey && !geminiKey && !vpsApiKey || saveMutation.isPending}
                     data-testid="button-save-keys"
                   >
                     {saveMutation.isPending ? "Saving..." : "Save API Keys"}
@@ -211,19 +241,20 @@ export default function Settings() {
                   <Button variant="outline" onClick={() => {
                     setOpenaiKey("");
                     setGeminiKey("");
+                    setVpsApiKey("");
                   }} data-testid="button-clear-keys">
                     Clear
                   </Button>
                 </div>
 
-                {(openaiKey || geminiKey) && (
+                {(openaiKey || geminiKey || vpsApiKey) && (
                   <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg text-sm text-green-700 dark:text-green-200">
                     <CheckCircle className="h-4 w-4" />
                     <span>Keys will be saved securely in your project configuration.</span>
                   </div>
                 )}
 
-                {!openaiKey && !geminiKey && (
+                {!openaiKey && !geminiKey && !vpsApiKey && (
                   <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg text-sm text-yellow-700 dark:text-yellow-200">
                     <AlertCircle className="h-4 w-4" />
                     <span>Please provide at least one API key for the chatbot to work.</span>
