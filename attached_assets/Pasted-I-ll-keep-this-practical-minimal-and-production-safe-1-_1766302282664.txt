@@ -1,0 +1,111 @@
+I’ll keep this practical, minimal, and production-safe.
+
+1️⃣ Model Mapping (IMPORTANT)
+
+Your VPS has these models:
+
+App Name (Replit)	Ollama Model
+short	tinyllama:latest
+medium	llama3.2:3b
+
+Your gateway decides the real Ollama model.
+
+2️⃣ Gateway Endpoint (from Replit)
+
+Base URL (public):
+
+http://31.97.210.209:8001
+
+
+Chat endpoint:
+
+POST /chat
+
+3️⃣ Example: Call tinyllama (SHORT model)
+Replit → VPS (Non-Streaming)
+const response = await fetch("http://31.97.210.209:8001/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "api-key": process.env.VPS_API_KEY
+  },
+  body: JSON.stringify({
+    model: "short",
+    session_id: "user_123",
+    prompt: "Summarize this resume for SAP UI5 developer",
+    stream: false
+  })
+});
+
+const data = await response.json();
+console.log(data.output);
+
+
+✔ Uses tinyllama
+✔ Fast
+✔ Cheap
+✔ Best for short tasks, parsing, summaries
+
+4️⃣ Example: Call llama3.2:3b (MEDIUM model)
+Replit → VPS
+const response = await fetch("http://31.97.210.209:8001/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "api-key": process.env.VPS_API_KEY
+  },
+  body: JSON.stringify({
+    model: "medium",
+    session_id: "user_123",
+    prompt: "Extract resume into structured JSON",
+    stream: false
+  })
+});
+
+const data = await response.json();
+console.log(data.output);
+
+
+✔ Uses llama3.2:3b
+✔ Better reasoning
+✔ Slower than short
+✔ More RAM usage
+
+5️⃣ Streaming Example (Recommended for UI)
+const response = await fetch("http://31.97.210.209:8001/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "api-key": process.env.VPS_API_KEY
+  },
+  body: JSON.stringify({
+    model: "medium",
+    session_id: "user_123",
+    prompt: "Explain this resume in detail",
+    stream: true
+  })
+});
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  console.log(decoder.decode(value));
+}
+
+
+✔ Perfect for chat UX
+✔ No timeout issues
+
+6️⃣ Expected Gateway Response Format
+
+Your gateway should return:
+
+{
+  "model": "llama3.2:3b",
+  "output": "Parsed resume content here",
+  "session_id": "user_123",
+  "done": true
+}

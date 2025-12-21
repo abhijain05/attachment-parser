@@ -84,6 +84,42 @@ async function getEmbedding(
   }
 }
 
+// VPS Chat/LLM provider
+async function getVPSChatResponse(
+  prompt: string,
+  vpsUrl: string,
+  vpsApiKey: string,
+  vpsModel: string,
+  sessionId: string
+): Promise<string> {
+  try {
+    const response = await fetch(`${vpsUrl}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": vpsApiKey,
+      },
+      body: JSON.stringify({
+        model: vpsModel,
+        session_id: sessionId,
+        prompt: prompt,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`VPS chat error: ${response.status} ${response.statusText}`);
+      return "Error communicating with VPS gateway.";
+    }
+
+    const data = await response.json();
+    return data.output || "";
+  } catch (err) {
+    console.error("Error calling VPS chat:", err);
+    return "Error processing request through VPS gateway.";
+  }
+}
+
 // Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -640,7 +676,26 @@ If the answer is not in the context, say "I don't have information about that in
 Be ${tone} in your responses.
 Do not make up information. Always ground your answers in the provided sources.`;
 
-        if (aiProvider === "gemini" && (userGemini || gemini)) {
+        if (aiProvider === "vps" && chatbotConfig?.vpsUrl && chatbotConfig?.vpsApiKey && chatbotConfig?.vpsModel) {
+          try {
+            const fullPrompt = `${systemPrompt}\n\nContext:\n${context}\n\nQuestion: ${message}`;
+            responseText = await getVPSChatResponse(
+              fullPrompt,
+              chatbotConfig.vpsUrl,
+              chatbotConfig.vpsApiKey,
+              chatbotConfig.vpsModel,
+              session.id
+            );
+            if (!responseText || responseText.length < 2) {
+              console.warn("[Chat] VPS returned empty/minimal response");
+              responseText = "I couldn't generate a meaningful response. The knowledge base may not contain relevant information for this query.";
+            }
+            tokensUsed = 0;
+          } catch (err) {
+            console.error("VPS error:", err);
+            responseText = "I apologize, but I'm having trouble processing your request. Please check your VPS configuration in settings.";
+          }
+        } else if (aiProvider === "gemini" && (userGemini || gemini)) {
           try {
             const geminiClient = userGemini || gemini;
             const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
