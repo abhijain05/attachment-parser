@@ -676,12 +676,13 @@ If the answer is not in the context, say "I don't have information about that in
 Be ${tone} in your responses.
 Do not make up information. Always ground your answers in the provided sources.`;
 
-        if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiUrl && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
+        if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
           try {
+            const tarangUrl = chatbotConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
             const fullPrompt = `${systemPrompt}\n\nContext:\n${context}\n\nQuestion: ${message}`;
             responseText = await getTarangAIChatResponse(
               fullPrompt,
-              chatbotConfig.tarangAiUrl,
+              tarangUrl,
               chatbotConfig.tarangAiApiKey,
               chatbotConfig.tarangAiModel,
               session.id

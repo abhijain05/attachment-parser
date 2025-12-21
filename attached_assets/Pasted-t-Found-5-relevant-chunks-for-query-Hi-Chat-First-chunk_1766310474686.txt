@@ -1,0 +1,24 @@
+t] Found 5 relevant chunks for query: "Hi"
+[Chat] First chunk content length: 938
+[Chat] Sending response: { messageLength: 73, hasSources: true }
+9:46:25 AM [express] POST /api/chat 200 in 3019ms :: {"sessionId":"7624460f-3296-457b-b817-5c87e920368b","message":"Please configure an API key in Project Settings before using the chatbot.","sources":[{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"Abhishek Jain SAP Full Stack Developer +91.9579054751 er.abhijain@yahoo.co.in Professional Summary: 1 4 years of relevant experience in SAP Full Stack..."},{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"Leading a team and helping them in day-to-day development. Company Name : Capgemini India Private L imited Project: John Deere - PDM Team Period: Augu..."},{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"Run code inspector, EPC and prepare Unit Test Plan (UTP) before delivery of every fresh development. This ensures minimum defect while functional test..."},{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"This ensures minimum defect while functional testing. Take handover of objects developed by the other team members. It meant taking up the complete re..."},{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"Work independently on any assignment and take complete responsibility of the deliverable. Run code inspector, code optimizer and prepare Unit Test Pla..."}]}
+^[[6~^[[6~^[[6~^[[5~^[[A9:47:03 AM [express] GET /api/auth/user 304 in 730ms :: {"id":"d98bf4c1-3d1e-492b-b7d9-dc83ad615650","email":"admin@tarang.dev","firstName":"Admin","lastName":"User","profileImageUrl":null,"authProvider":"email","googleId":null,"emailVerified":true,"verificationExpires":null,"resetExpires":null,"createdAt":"2025-12-19T01:20:45.977Z","updatedAt":"2025-12-19T01:20:45.977Z"}
+9:47:04 AM [express] GET /api/projects 304 in 974ms :: [{"id":"ee1e1212-af34-4b77-8fe4-b3bf38b85ffa","userId":"d98bf4c1-3d1e-492b-b7d9-dc83ad615650","name":"SARA","description":"first project","mcpApiKey":"445f6036-a85d-4587-82fc-fe2b12faf008","createdAt":"2025-12-19T12:33:34.505Z","updatedAt":"2025-12-19T12:33:34.505Z"}]
+Error generating tarang_ai embedding: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async getEmbedding (/home/runner/workspace/server/routes.ts:61:24)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:641:26) {
+  [cause]: Error: connect ECONNREFUSED 31.97.210.209:8001
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+    errno: -111,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '31.97.210.209',
+    port: 8001
+  }
+}
+[Chat] Found 5 relevant chunks for query: "Hi"
+[Chat] First chunk content length: 938
+[Chat] Sending response: { messageLength: 73, hasSources: true }
+9:47:21 AM [express] POST /api/chat 200 in 4863ms :: {"sessionId":"59a492b7-cb60-468d-a622-3cc9a2c2c64a","message":"Please configure an API key in Project Settings before using the chatbot.","sources":[{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"Abhishek Jain SAP Full Stack Developer +91.9579054751 er.abhijain@yahoo.co.in Professional Summary: 1 4 years of relevant experience in SAP Full Stack..."},{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"Leading a team and helping them in day-to-day development. Company Name : Capgemini India Private L imited Project: John Deere - PDM Team Period: Augu..."},{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"Run code inspector, EPC and prepare Unit Test Plan (UTP) before delivery of every fresh development. This ensures minimum defect while functional test..."},{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"This ensures minimum defect while functional testing. Take handover of objects developed by the other team members. It meant taking up the complete re..."},{"documentId":"8d689250-2b17-4f53-970c-cc2be3e77f66","documentName":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","snippet":"Work independently on any assignment and take complete responsibility of the deliverable. Run code inspector, code optimizer and prepare Unit Test Pla..."}]}
