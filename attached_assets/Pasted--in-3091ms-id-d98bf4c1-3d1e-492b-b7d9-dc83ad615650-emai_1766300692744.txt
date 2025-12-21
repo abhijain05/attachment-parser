@@ -1,0 +1,32 @@
+ in 3091ms :: {"id":"d98bf4c1-3d1e-492b-b7d9-dc83ad615650","email":"admin@tarang.dev","firstName":"Admin","lastName":"User","profileImageUrl":null,"authProvider":"email","googleId":null,"emailVerified":true,"verificationExpires":null,"resetExpires":null,"createdAt":"2025-12-19T01:20:45.977Z","updatedAt":"2025-12-19T01:20:45.977Z"}
+7:04:05 AM [express] GET /api/auth/user 200 in 742ms :: {"id":"d98bf4c1-3d1e-492b-b7d9-dc83ad615650","email":"admin@tarang.dev","firstName":"Admin","lastName":"User","profileImageUrl":null,"authProvider":"email","googleId":null,"emailVerified":true,"verificationExpires":null,"resetExpires":null,"createdAt":"2025-12-19T01:20:45.977Z","updatedAt":"2025-12-19T01:20:45.977Z"}
+7:04:07 AM [express] GET /api/stats 200 in 1731ms :: {"totalProjects":1,"totalDocuments":1,"totalQueries":0,"tokensUsed":0}
+7:04:08 AM [express] GET /api/projects 200 in 2929ms :: [{"id":"ee1e1212-af34-4b77-8fe4-b3bf38b85ffa","userId":"d98bf4c1-3d1e-492b-b7d9-dc83ad615650","name":"SARA","description":"first project","mcpApiKey":"445f6036-a85d-4587-82fc-fe2b12faf008","createdAt":"2025-12-19T12:33:34.505Z","updatedAt":"2025-12-19T12:33:34.505Z"}]
+7:04:16 AM [express] GET /api/documents 200 in 1202ms :: [{"id":"5d8ef4ce-54db-4471-b2bb-4e44c256d94c","projectId":"ee1e1212-af34-4b77-8fe4-b3bf38b85ffa","name":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","type":"docx","content":"Error processing document. Please try a different file.","metadata":{"size":22057,"mimeType":"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},"status":"error","createdAt":"2025-12-21T06:37:40.105Z","updatedAt":"2025-12-21T06:37:42.270Z"}]
+7:04:21 AM [express] DELETE /api/documents/5d8ef4ce-54db-4471-b2bb-4e44c256d94c 200 in 1439ms :: {"message":"Document deleted"}
+7:04:22 AM [express] GET /api/documents 200 in 1197ms :: []
+7:04:25 AM [express] POST /api/documents/upload 201 in 1222ms :: {"id":"00fac052-8cb3-4ca6-9106-6433e6940c33","projectId":"ee1e1212-af34-4b77-8fe4-b3bf38b85ffa","name":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","type":"docx","content":null,"metadata":{"size":22057,"mimeType":"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},"status":"processing","createdAt":"2025-12-21T07:04:25.512Z","updatedAt":"2025-12-21T07:04:25.512Z"}
+Error processing document: error: column "embedding" of relation "document_chunks" does not exist
+    at /home/runner/workspace/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DatabaseStorage.createChunks (/home/runner/workspace/server/storage.ts:175:5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:407:11) {
+  length: 137,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '79',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_target.c',
+  line: '1075',
+  routine: 'checkInsertTargets'
+}
+7:04:28 AM [express] GET /api/documents 200 in 2256ms :: [{"id":"00fac052-8cb3-4ca6-9106-6433e6940c33","projectId":"ee1e1212-af34-4b77-8fe4-b3bf38b85ffa","name":"Abhishek Jain_11 Yrs_SAP ABAP FIORI_Hitachi.docx","type":"docx","content":"Error processing document. Please try a different file.","metadata":{"size":22057,"mimeType":"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},"status":"error","createdAt":"2025-12-21T07:04:25.512Z","updatedAt":"2025-12-21T07:04:26.638Z"}]
