@@ -18,16 +18,66 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return magA && magB ? dotProduct / (magA * magB) : 0;
 }
 
-// Generate embedding using OpenAI
-async function generateEmbedding(text: string, openaiClient: OpenAI): Promise<number[]> {
+// Unified embedding provider interface
+async function getEmbedding(
+  provider: "openai" | "gemini" | "vps",
+  text: string,
+  config?: {
+    openaiClient?: OpenAI;
+    geminiClient?: GoogleGenerativeAI;
+    vpsUrl?: string;
+    vpsApiKey?: string;
+  }
+): Promise<number[]> {
   try {
-    const response = await openaiClient.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text,
-    });
-    return response.data[0].embedding;
+    if (provider === "openai" && (config?.openaiClient || openai)) {
+      const client = config?.openaiClient || openai;
+      const response = await client!.embeddings.create({
+        model: "text-embedding-3-small",
+        input: text,
+      });
+      return response.data[0].embedding;
+    }
+
+    if (provider === "gemini" && (config?.geminiClient || gemini)) {
+      const client = config?.geminiClient || gemini;
+      const model = client!.getGenerativeModel({ model: "embedding-001" });
+      const result = await model.embedContent(text);
+      const embedding = result.embedding?.values || [];
+      return Array.isArray(embedding) ? embedding : [];
+    }
+
+    if (provider === "vps") {
+      const vpsUrl = config?.vpsUrl || process.env.VPS_EMBEDDINGS_URL || "http://31.97.210.209:8001/embeddings";
+      const vpsApiKey = config?.vpsApiKey || process.env.VPS_API_KEY;
+      
+      if (!vpsApiKey) {
+        console.warn("VPS embedding requested but no API key configured");
+        return [];
+      }
+
+      const response = await fetch(vpsUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": vpsApiKey,
+        },
+        body: JSON.stringify({ input: text }),
+      });
+
+      if (!response.ok) {
+        console.error(`VPS embedding error: ${response.status} ${response.statusText}`);
+        return [];
+      }
+
+      const data = await response.json();
+      const embedding = data.embedding || [];
+      return Array.isArray(embedding) ? embedding : [];
+    }
+
+    return [];
   } catch (err) {
-    console.error("Error generating embedding:", err);
+    console.error(`Error generating ${provider} embedding:`, err);
     return [];
   }
 }
@@ -301,6 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process file asynchronously
       (async () => {
         try {
+          const userId = getUserId(req);
           const content = await extractText(req.file!.buffer, filename);
           const chunks = chunkText(content);
           
@@ -310,33 +361,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
           
-          // Generate embeddings for chunks using OpenAI
-          const chunksWithEmbeddings = await Promise.all(
+          // Get chatbot config to determine embedding provider
+          const chatbotConfig = await storage.getChatbotConfig(projectId);
+          const embeddingProvider = (chatbotConfig?.aiProvider || "openai") as "openai" | "gemini" | "vps";
+          const userOpenaiKey = chatbotConfig?.openaiApiKey;
+          const userGeminiKey = chatbotConfig?.geminiApiKey;
+          
+          const embeddingConfig = {
+            openaiClient: userOpenaiKey ? new OpenAI({ apiKey: userOpenaiKey }) : undefined,
+            geminiClient: userGeminiKey ? new GoogleGenerativeAI(userGeminiKey) : undefined,
+          };
+          
+          // Generate embeddings and store in document_embeddings table
+          const documentEmbeddings = await Promise.all(
             chunks.map(async (text, index) => {
-              let embedding: number[] = [];
-              if (openai) {
-                try {
-                  const response = await openai.embeddings.create({
-                    model: "text-embedding-3-small",
-                    input: text,
-                  });
-                  embedding = response.data[0].embedding;
-                } catch (err) {
-                  console.warn("Failed to generate embedding for chunk:", err);
-                }
-              }
+              const embedding = await getEmbedding(embeddingProvider, text, embeddingConfig);
               return {
+                userId,
                 documentId: doc.id,
-                content: text,
                 chunkIndex: index,
-                embedding: embedding.length > 0 ? embedding : undefined,
+                content: text,
+                embedding: embedding.length > 0 ? embedding : new Array(768).fill(0), // Default to zero vector if no embedding
+                metadata: { provider: embeddingProvider, fileName: filename },
               };
             })
           );
           
+          // Store in document_embeddings table
+          await storage.createDocumentEmbeddings(documentEmbeddings);
+          
+          // Also store in document_chunks for backward compatibility
+          const chunksWithEmbeddings = documentEmbeddings.map((e) => ({
+            documentId: e.documentId,
+            content: e.content,
+            chunkIndex: e.chunkIndex,
+            embedding: e.embedding.slice(0, 1536), // Store in chunks too for compatibility
+          }));
+          
           await storage.createChunks(chunksWithEmbeddings);
           await storage.updateDocumentStatus(doc.id, "ready", content);
-          console.log(`[Document] Successfully processed ${filename}: ${chunks.length} chunks created with embeddings`);
+          console.log(`[Document] Successfully processed ${filename}: ${chunks.length} chunks created with ${embeddingProvider} embeddings`);
         } catch (err) {
           console.error("Error processing document:", err);
           await storage.updateDocumentStatus(doc.id, "error", "Error processing document. Please try a different file.");
@@ -500,6 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get chatbot config with user's API keys
       const chatbotConfig = await storage.getChatbotConfig(projectId);
       const aiProvider = chatbotConfig?.aiProvider || "openai";
+      const embeddingProvider = (chatbotConfig?.aiProvider || "openai") as "openai" | "gemini" | "vps";
       const userOpenaiKey = chatbotConfig?.openaiApiKey;
       const userGeminiKey = chatbotConfig?.geminiApiKey;
 
@@ -514,21 +579,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userGemini = new GoogleGenerativeAI(userGeminiKey);
       }
 
-      // Generate embedding for query and search with semantic similarity
+      // Generate embedding for query using the configured provider
+      const userId = getUserId(req);
+      const embeddingConfig = {
+        openaiClient: userOpenai || openai || undefined,
+        geminiClient: userGemini || gemini || undefined,
+      };
+      
       let queryEmbedding: number[] = [];
-      if (openai) {
-        try {
-          const response = await openai.embeddings.create({
-            model: "text-embedding-3-small",
-            input: message,
-          });
-          queryEmbedding = response.data[0].embedding;
-        } catch (err) {
-          console.warn("Failed to generate query embedding:", err);
-        }
+      try {
+        queryEmbedding = await getEmbedding(embeddingProvider, message, embeddingConfig);
+      } catch (err) {
+        console.warn("Failed to generate query embedding:", err);
       }
       
-      // Search for relevant context from knowledge base
+      // Search for relevant context from knowledge base using semantic search
       const relevantChunks = await storage.searchChunks(projectId, message, 5, queryEmbedding);
       
       let responseText = "";
