@@ -362,7 +362,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Get chatbot config to determine embedding provider
-          const chatbotConfig = await storage.getChatbotConfig(projectId);
+          let chatbotConfig;
+          try {
+            chatbotConfig = await storage.getChatbotConfig(projectId);
+          } catch (err) {
+            console.warn("Could not load chatbot config, using defaults:", err);
+            chatbotConfig = null;
+          }
           const embeddingProvider = (chatbotConfig?.aiProvider || "openai") as "openai" | "gemini" | "vps";
           const userOpenaiKey = chatbotConfig?.openaiApiKey;
           const userGeminiKey = chatbotConfig?.geminiApiKey;
