@@ -20,7 +20,9 @@ const vector = customType<{ data: number[] }>({
     return "vector(768)";
   },
   toDriver(value) {
-    return value;
+    // Format the array as a PostgreSQL vector string: [0.1,0.2,...]
+    if (!value || !Array.isArray(value)) return "[" + new Array(768).fill(0).join(",") + "]";
+    return "[" + value.join(",") + "]";
   },
   fromDriver(value) {
     return value;
