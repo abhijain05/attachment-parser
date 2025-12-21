@@ -20,14 +20,14 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 // Unified embedding provider interface
 async function getEmbedding(
-  provider: "openai" | "gemini" | "vps",
+  provider: "openai" | "gemini" | "tarang_ai",
   text: string,
   config?: {
     openaiClient?: OpenAI;
     geminiClient?: GoogleGenerativeAI;
-    vpsUrl?: string;
-    vpsApiKey?: string;
-    vpsModel?: string;
+    tarangAiUrl?: string;
+    tarangAiApiKey?: string;
+    tarangAiModel?: string;
   }
 ): Promise<number[]> {
   try {
@@ -48,27 +48,27 @@ async function getEmbedding(
       return Array.isArray(embedding) ? embedding : [];
     }
 
-    if (provider === "vps") {
-      const vpsUrl = config?.vpsUrl || process.env.VPS_EMBEDDINGS_URL || "http://31.97.210.209:8001/embeddings";
-      const vpsApiKey = config?.vpsApiKey || process.env.VPS_API_KEY;
-      const vpsModel = config?.vpsModel || process.env.VPS_MODEL || "nomic-embed-text";
+    if (provider === "tarang_ai") {
+      const tarangAiUrl = config?.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
+      const tarangAiApiKey = config?.tarangAiApiKey || process.env.TARANG_AI_API_KEY;
+      const tarangAiModel = config?.tarangAiModel || process.env.TARANG_AI_MODEL || "short";
       
-      if (!vpsApiKey) {
-        console.warn("VPS embedding requested but no API key configured");
+      if (!tarangAiApiKey) {
+        console.warn("Tarang AI embedding requested but no API key configured");
         return [];
       }
 
-      const response = await fetch(vpsUrl, {
+      const response = await fetch(`${tarangAiUrl}/embeddings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "api-key": vpsApiKey,
+          "api-key": tarangAiApiKey,
         },
-        body: JSON.stringify({ input: text, model: vpsModel }),
+        body: JSON.stringify({ input: text, model: tarangAiModel }),
       });
 
       if (!response.ok) {
-        console.error(`VPS embedding error: ${response.status} ${response.statusText}`);
+        console.error(`Tarang AI embedding error: ${response.status} ${response.statusText}`);
         return [];
       }
 
@@ -84,23 +84,23 @@ async function getEmbedding(
   }
 }
 
-// VPS Chat/LLM provider
-async function getVPSChatResponse(
+// Tarang AI Chat/LLM provider
+async function getTarangAIChatResponse(
   prompt: string,
-  vpsUrl: string,
-  vpsApiKey: string,
-  vpsModel: string,
+  tarangAiUrl: string,
+  tarangAiApiKey: string,
+  tarangAiModel: string,
   sessionId: string
 ): Promise<string> {
   try {
-    const response = await fetch(`${vpsUrl}/chat`, {
+    const response = await fetch(`${tarangAiUrl}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "api-key": vpsApiKey,
+        "api-key": tarangAiApiKey,
       },
       body: JSON.stringify({
-        model: vpsModel,
+        model: tarangAiModel,
         session_id: sessionId,
         prompt: prompt,
         stream: false,
@@ -108,15 +108,15 @@ async function getVPSChatResponse(
     });
 
     if (!response.ok) {
-      console.error(`VPS chat error: ${response.status} ${response.statusText}`);
-      return "Error communicating with VPS gateway.";
+      console.error(`Tarang AI chat error: ${response.status} ${response.statusText}`);
+      return "Error communicating with Tarang AI gateway.";
     }
 
     const data = await response.json();
     return data.output || "";
   } catch (err) {
-    console.error("Error calling VPS chat:", err);
-    return "Error processing request through VPS gateway.";
+    console.error("Error calling Tarang AI chat:", err);
+    return "Error processing request through Tarang AI gateway.";
   }
 }
 
@@ -407,16 +407,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.warn("Could not load chatbot config, using defaults:", err);
             chatbotConfig = null;
           }
-          const embeddingProvider = (chatbotConfig?.aiProvider || "openai") as "openai" | "gemini" | "vps";
+          const embeddingProvider = (chatbotConfig?.aiProvider || "openai") as "openai" | "gemini" | "tarang_ai";
           const userOpenaiKey = chatbotConfig?.openaiApiKey;
           const userGeminiKey = chatbotConfig?.geminiApiKey;
           
           const embeddingConfig = {
             openaiClient: userOpenaiKey ? new OpenAI({ apiKey: userOpenaiKey }) : undefined,
             geminiClient: userGeminiKey ? new GoogleGenerativeAI(userGeminiKey) : undefined,
-            vpsUrl: chatbotConfig?.vpsUrl,
-            vpsApiKey: chatbotConfig?.vpsApiKey,
-            vpsModel: chatbotConfig?.vpsModel,
+            tarangAiUrl: chatbotConfig?.tarangAiUrl,
+            tarangAiApiKey: chatbotConfig?.tarangAiApiKey,
+            tarangAiModel: chatbotConfig?.tarangAiModel,
           };
           
           // Generate embeddings and store in document_embeddings table
@@ -611,7 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get chatbot config with user's API keys
       const chatbotConfig = await storage.getChatbotConfig(projectId);
       const aiProvider = chatbotConfig?.aiProvider || "openai";
-      const embeddingProvider = (chatbotConfig?.aiProvider || "openai") as "openai" | "gemini" | "vps";
+      const embeddingProvider = (chatbotConfig?.aiProvider || "openai") as "openai" | "gemini" | "tarang_ai";
       const userOpenaiKey = chatbotConfig?.openaiApiKey;
       const userGeminiKey = chatbotConfig?.geminiApiKey;
 
@@ -631,9 +631,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const embeddingConfig = {
         openaiClient: userOpenai || openai || undefined,
         geminiClient: userGemini || gemini || undefined,
-        vpsUrl: chatbotConfig?.vpsUrl,
-        vpsApiKey: chatbotConfig?.vpsApiKey,
-        vpsModel: chatbotConfig?.vpsModel,
+        tarangAiUrl: chatbotConfig?.tarangAiUrl,
+        tarangAiApiKey: chatbotConfig?.tarangAiApiKey,
+        tarangAiModel: chatbotConfig?.tarangAiModel,
       };
       
       let queryEmbedding: number[] = [];
@@ -676,24 +676,24 @@ If the answer is not in the context, say "I don't have information about that in
 Be ${tone} in your responses.
 Do not make up information. Always ground your answers in the provided sources.`;
 
-        if (aiProvider === "vps" && chatbotConfig?.vpsUrl && chatbotConfig?.vpsApiKey && chatbotConfig?.vpsModel) {
+        if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiUrl && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
           try {
             const fullPrompt = `${systemPrompt}\n\nContext:\n${context}\n\nQuestion: ${message}`;
-            responseText = await getVPSChatResponse(
+            responseText = await getTarangAIChatResponse(
               fullPrompt,
-              chatbotConfig.vpsUrl,
-              chatbotConfig.vpsApiKey,
-              chatbotConfig.vpsModel,
+              chatbotConfig.tarangAiUrl,
+              chatbotConfig.tarangAiApiKey,
+              chatbotConfig.tarangAiModel,
               session.id
             );
             if (!responseText || responseText.length < 2) {
-              console.warn("[Chat] VPS returned empty/minimal response");
+              console.warn("[Chat] Tarang AI returned empty/minimal response");
               responseText = "I couldn't generate a meaningful response. The knowledge base may not contain relevant information for this query.";
             }
             tokensUsed = 0;
           } catch (err) {
-            console.error("VPS error:", err);
-            responseText = "I apologize, but I'm having trouble processing your request. Please check your VPS configuration in settings.";
+            console.error("Tarang AI error:", err);
+            responseText = "I apologize, but I'm having trouble processing your request. Please check your Tarang AI configuration in settings.";
           }
         } else if (aiProvider === "gemini" && (userGemini || gemini)) {
           try {
