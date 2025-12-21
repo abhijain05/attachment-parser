@@ -195,9 +195,12 @@ export const chatbotConfigs = pgTable("chatbot_configs", {
   tone: varchar("tone", { length: 50 }).default("professional"), // professional, friendly, formal
   showSources: boolean("show_sources").default(true),
   enableLiveChat: boolean("enable_live_chat").default(false),
-  aiProvider: varchar("ai_provider", { length: 20 }).default("openai"), // openai, gemini
+  aiProvider: varchar("ai_provider", { length: 20 }).default("openai"), // openai, gemini, vps
   openaiApiKey: text("openai_api_key"), // user's own API key
   geminiApiKey: text("gemini_api_key"), // user's own API key
+  vpsUrl: text("vps_url"), // VPS/Ollama endpoint URL
+  vpsApiKey: text("vps_api_key"), // VPS API key
+  vpsModel: varchar("vps_model", { length: 100 }), // VPS model name (e.g., llama3.2:3b)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

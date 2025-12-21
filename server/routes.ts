@@ -27,6 +27,7 @@ async function getEmbedding(
     geminiClient?: GoogleGenerativeAI;
     vpsUrl?: string;
     vpsApiKey?: string;
+    vpsModel?: string;
   }
 ): Promise<number[]> {
   try {
@@ -50,6 +51,7 @@ async function getEmbedding(
     if (provider === "vps") {
       const vpsUrl = config?.vpsUrl || process.env.VPS_EMBEDDINGS_URL || "http://31.97.210.209:8001/embeddings";
       const vpsApiKey = config?.vpsApiKey || process.env.VPS_API_KEY;
+      const vpsModel = config?.vpsModel || process.env.VPS_MODEL || "nomic-embed-text";
       
       if (!vpsApiKey) {
         console.warn("VPS embedding requested but no API key configured");
@@ -62,7 +64,7 @@ async function getEmbedding(
           "Content-Type": "application/json",
           "api-key": vpsApiKey,
         },
-        body: JSON.stringify({ input: text }),
+        body: JSON.stringify({ input: text, model: vpsModel }),
       });
 
       if (!response.ok) {
@@ -71,7 +73,7 @@ async function getEmbedding(
       }
 
       const data = await response.json();
-      const embedding = data.embedding || [];
+      const embedding = data.embedding || data.data?.[0]?.embedding || [];
       return Array.isArray(embedding) ? embedding : [];
     }
 
@@ -376,6 +378,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const embeddingConfig = {
             openaiClient: userOpenaiKey ? new OpenAI({ apiKey: userOpenaiKey }) : undefined,
             geminiClient: userGeminiKey ? new GoogleGenerativeAI(userGeminiKey) : undefined,
+            vpsUrl: chatbotConfig?.vpsUrl,
+            vpsApiKey: chatbotConfig?.vpsApiKey,
+            vpsModel: chatbotConfig?.vpsModel,
           };
           
           // Generate embeddings and store in document_embeddings table
@@ -590,6 +595,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const embeddingConfig = {
         openaiClient: userOpenai || openai || undefined,
         geminiClient: userGemini || gemini || undefined,
+        vpsUrl: chatbotConfig?.vpsUrl,
+        vpsApiKey: chatbotConfig?.vpsApiKey,
+        vpsModel: chatbotConfig?.vpsModel,
       };
       
       let queryEmbedding: number[] = [];
