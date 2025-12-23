@@ -108,15 +108,29 @@ async function getTarangAIChatResponse(
     });
 
     if (!response.ok) {
-      console.error(`Tarang AI chat error: ${response.status} ${response.statusText}`);
-      return "Error communicating with Tarang AI gateway.";
+      console.error(`[Tarang AI] Chat error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`[Tarang AI] Error response: ${errorText}`);
+      return "";
     }
 
     const data = await response.json();
-    return data.output || "";
+    console.log("[Tarang AI] Response received:", JSON.stringify(data).substring(0, 200));
+    
+    // Try multiple possible response field names
+    let output = data.output || data.result || data.message || data.text || data.response || "";
+    
+    // If it's an object with nested structure, try to extract
+    if (typeof output === "object" && output !== null) {
+      output = output.text || output.message || JSON.stringify(output);
+    }
+    
+    const result = String(output).trim();
+    console.log(`[Tarang AI] Extracted output length: ${result.length}`);
+    return result;
   } catch (err) {
-    console.error("Error calling Tarang AI chat:", err);
-    return "Error processing request through Tarang AI gateway.";
+    console.error("[Tarang AI] Error calling chat endpoint:", err);
+    return "";
   }
 }
 
