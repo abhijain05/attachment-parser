@@ -20,6 +20,7 @@ import type { Project, ChatMessage } from "@shared/schema";
 interface ChatResponse {
   sessionId: string;
   message: string;
+  model?: string;
   sources?: { documentId: string; documentName: string; snippet: string }[];
 }
 
@@ -27,7 +28,7 @@ export default function TestChat() {
   const { toast } = useToast();
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [sessionId, setSessionId] = useState<string>("");
-  const [messages, setMessages] = useState<Array<{ role: string; content: string; sources?: any; attachments?: any }>>([]);
+  const [messages, setMessages] = useState<Array<{ role: string; content: string; sources?: any; attachments?: any; model?: string }>>([]);
   const [inputValue, setInputValue] = useState("");
   const [attachments, setAttachments] = useState<Array<{ name: string; type: string; content: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -102,6 +103,7 @@ export default function TestChat() {
           role: "assistant",
           content: data.message,
           sources: data.sources,
+          model: data.model,
         },
       ]);
     },
@@ -200,6 +202,9 @@ export default function TestChat() {
                   }`}
                 >
                   <p className="text-sm">{msg.content}</p>
+                  {msg.role === "assistant" && msg.model && (
+                    <p className="text-xs mt-2 opacity-60">Replied by: {msg.model}</p>
+                  )}
                   {msg.sources && msg.sources.length > 0 && msg.role === "assistant" && (
                     <div className="mt-3 pt-3 border-t border-muted-foreground/20 space-y-2">
                       <p className="text-xs font-semibold opacity-70">Sources:</p>

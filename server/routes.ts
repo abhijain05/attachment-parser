@@ -782,6 +782,8 @@ Respond with ONLY "yes" or "no".
       let tokensUsed = 0;
       const sources: { documentId: string; documentName: string; snippet: string }[] = [];
 
+      console.log(`[Chat] Using AI provider: ${aiProvider}`);
+
       // Always detect if this message needs knowledge base chunks using AI
       const needsKnowledge = await detectNeedsKnowledgeBase(
         message,
@@ -849,6 +851,7 @@ Do not make up information. Always ground your answers in the provided sources.`
         const fullContext = `${systemPrompt}\n\nPrevious context:\n${historyContext || "No previous messages"}\n\nDocumentation:\n${context}\n\nQuestion: ${message}`;
 
         if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
+          console.log(`[Chat] Sending knowledge base query to Tarang AI (model: ${chatbotConfig?.tarangAiModel})`);
           try {
             const tarangUrl = chatbotConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
             responseText = await getTarangAIChatResponse(
@@ -868,6 +871,7 @@ Do not make up information. Always ground your answers in the provided sources.`
             responseText = "I apologize, but I'm having trouble processing your request. Please check your Tarang AI configuration in settings.";
           }
         } else if (aiProvider === "gemini" && (userGemini || gemini)) {
+          console.log(`[Chat] Sending knowledge base query to Gemini`);
           try {
             const geminiClient = userGemini || gemini;
             const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
@@ -884,6 +888,7 @@ Do not make up information. Always ground your answers in the provided sources.`
             responseText = "I apologize, but I'm having trouble processing your request. Please check your Gemini API key in settings.";
           }
         } else if (userOpenai || openai) {
+          console.log(`[Chat] Sending knowledge base query to OpenAI (model: gpt-5)`);
           try {
             const openaiClient = userOpenai || openai;
             const response = await openaiClient!.chat.completions.create({
@@ -915,6 +920,7 @@ Do not make up information. Always ground your answers in the provided sources.`
         const generalChatPrompt = `Respond naturally and briefly to this message. Keep it friendly and concise:\n\nMessage: "${message}"\n\nPrevious context:\n${historyContext || "No previous messages"}`;
 
         if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
+          console.log(`[Chat] Sending general chat message to Tarang AI (model: ${chatbotConfig?.tarangAiModel})`);
           try {
             const tarangUrl = chatbotConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
             responseText = await getTarangAIChatResponse(
@@ -932,6 +938,7 @@ Do not make up information. Always ground your answers in the provided sources.`
             responseText = "Hi! How can I assist you?";
           }
         } else if (aiProvider === "gemini" && (userGemini || gemini)) {
+          console.log(`[Chat] Sending general chat message to Gemini`);
           try {
             const geminiClient = userGemini || gemini;
             const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
@@ -945,6 +952,7 @@ Do not make up information. Always ground your answers in the provided sources.`
             responseText = "Hi! How can I assist you?";
           }
         } else if (userOpenai || openai) {
+          console.log(`[Chat] Sending general chat message to OpenAI (model: gpt-5)`);
           try {
             const openaiClient = userOpenai || openai;
             const response = await openaiClient!.chat.completions.create({
@@ -975,6 +983,8 @@ Do not make up information. Always ground your answers in the provided sources.`
         tokensUsed,
       });
 
+      console.log(`[Chat] Response sent from ${aiProvider} (${responseText.length} chars)`);
+
       // Log analytics
       await storage.logAnalyticsEvent({
         projectId,
@@ -998,6 +1008,7 @@ Do not make up information. Always ground your answers in the provided sources.`
       const responsePayload = {
         sessionId: session.id,
         message: responseText,
+        model: aiProvider,
         sources: sources.length > 0 ? sources : undefined,
         history: allMessages.map(msg => ({
           role: msg.role,
