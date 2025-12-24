@@ -675,13 +675,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .map((chunk) => `[Source: ${chunk.documentName}]\n${chunk.content}`)
           .join("\n\n");
 
+        // Deduplicate sources by documentId
+        const uniqueSources = new Map<string, { documentId: string; documentName: string; snippet: string }>();
         for (const chunk of relevantChunks) {
-          sources.push({
-            documentId: chunk.documentId,
-            documentName: chunk.documentName,
-            snippet: chunk.content.slice(0, 150) + "...",
-          });
+          if (!uniqueSources.has(chunk.documentId)) {
+            uniqueSources.set(chunk.documentId, {
+              documentId: chunk.documentId,
+              documentName: chunk.documentName,
+              snippet: chunk.content.slice(0, 150) + "...",
+            });
+          }
         }
+        sources.push(...uniqueSources.values());
 
         const tone = chatbotConfig?.tone || "professional";
         
