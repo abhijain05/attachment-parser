@@ -789,27 +789,61 @@ Respond with ONLY "yes" or "no".
 
       // Check if this is general chat (like "hi", "hello", "bye", etc.)
       if (isGeneralChat(message)) {
-        // For general chat, respond quickly without knowledge base
-        const generalResponses: Record<string, string> = {
-          "hi": "Hi there! How can I help you today?",
-          "hello": "Hello! What can I do for you?",
-          "hey": "Hey! What's on your mind?",
-          "bye": "Goodbye! Feel free to reach out anytime.",
-          "goodbye": "Take care! See you soon.",
-          "good morning": "Good morning! Hope you have a great day!",
-          "good evening": "Good evening! How can I assist?",
-          "good night": "Good night! Rest well!",
-          "thanks": "You're welcome! Happy to help.",
-          "thank you": "You're welcome! Glad I could assist.",
-          "how are you": "I'm doing well, thank you for asking! How can I help you?",
-          "what's up": "Not much! What can I help you with today?",
-        };
-
-        const lowerMsg = message.toLowerCase().trim();
-        responseText = generalResponses[lowerMsg] || "Hi! How can I assist you with your questions?";
-        tokensUsed = 0;
+        // For general chat, let AI respond naturally without searching knowledge base
+        console.log(`[Chat] General chat detected: "${message}" - asking AI for response`);
         
-        console.log(`[Chat] General chat detected: "${message}"`);
+        const generalChatPrompt = `Respond naturally and briefly to this casual message. Keep it friendly and concise:\n\n"${message}"`;
+
+        if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
+          try {
+            const tarangUrl = chatbotConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
+            responseText = await getTarangAIChatResponse(
+              generalChatPrompt,
+              tarangUrl,
+              chatbotConfig.tarangAiApiKey,
+              chatbotConfig.tarangAiModel,
+              session.id
+            );
+            if (!responseText || responseText.length < 2) {
+              responseText = "Hi there! How can I help you?";
+            }
+          } catch (err) {
+            console.error("Tarang AI error for general chat:", err);
+            responseText = "Hi! How can I assist you?";
+          }
+        } else if (aiProvider === "gemini" && (userGemini || gemini)) {
+          try {
+            const geminiClient = userGemini || gemini;
+            const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const result = await model.generateContent(generalChatPrompt);
+            responseText = (result.response.text() || "").trim();
+            if (!responseText || responseText.length < 2) {
+              responseText = "Hi there! How can I help you?";
+            }
+          } catch (err) {
+            console.error("Gemini error for general chat:", err);
+            responseText = "Hi! How can I assist you?";
+          }
+        } else if (userOpenai || openai) {
+          try {
+            const openaiClient = userOpenai || openai;
+            const response = await openaiClient!.chat.completions.create({
+              model: "gpt-5",
+              messages: [{ role: "user", content: generalChatPrompt }],
+              max_completion_tokens: 256,
+            });
+            responseText = (response.choices[0].message.content || "").trim();
+            if (!responseText || responseText.length < 2) {
+              responseText = "Hi there! How can I help you?";
+            }
+            tokensUsed = response.usage?.total_tokens || 0;
+          } catch (err) {
+            console.error("OpenAI error for general chat:", err);
+            responseText = "Hi! How can I assist you?";
+          }
+        } else {
+          responseText = "Hi! How can I assist you?";
+        }
       } else {
         // Detect if this message needs knowledge base chunks
         const needsKnowledge = await detectNeedsKnowledgeBase(
