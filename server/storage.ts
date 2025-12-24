@@ -408,6 +408,21 @@ export class DatabaseStorage implements IStorage {
   async getDocumentEmbeddings(userId: string, documentId: string): Promise<DocumentEmbedding[]> {
     return db.select().from(documentEmbeddings).where(and(eq(documentEmbeddings.userId, userId), eq(documentEmbeddings.documentId, documentId))).orderBy(documentEmbeddings.chunkIndex);
   }
+
+  // Admin settings operations
+  async getAdminSettings() {
+    const [settings] = await db.select().from(adminSettings).limit(1);
+    return settings;
+  }
+
+  async upsertAdminSettings(data: any) {
+    const existing = await this.getAdminSettings();
+    if (existing) {
+      await db.update(adminSettings).set(data).where(eq(adminSettings.id, existing.id));
+    } else {
+      await db.insert(adminSettings).values(data);
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

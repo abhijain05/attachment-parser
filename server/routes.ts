@@ -18,9 +18,26 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return magA && magB ? dotProduct / (magA * magB) : 0;
 }
 
+// Sentence Transformers embedding (local)
+let sentenceTransformersPipeline: any = null;
+
+async function getSentenceTransformersEmbedding(text: string, model: string = "all-MiniLM-L6-v2"): Promise<number[]> {
+  try {
+    if (!sentenceTransformersPipeline) {
+      const { pipeline } = await import("@xenova/transformers");
+      sentenceTransformersPipeline = await pipeline("feature-extraction", `Xenova/${model}`);
+    }
+    const embedding = await sentenceTransformersPipeline(text, { pooling: "mean", normalize: true });
+    return Array.from(embedding.data);
+  } catch (err) {
+    console.error("Error with Sentence Transformers embedding:", err);
+    return [];
+  }
+}
+
 // Unified embedding provider interface
 async function getEmbedding(
-  provider: "openai" | "gemini" | "tarang_ai",
+  provider: "openai" | "gemini" | "tarang_ai" | "sentence-transformers",
   text: string,
   config?: {
     openaiClient?: OpenAI;
@@ -28,9 +45,14 @@ async function getEmbedding(
     tarangAiUrl?: string;
     tarangAiApiKey?: string;
     tarangAiModel?: string;
+    sentenceTransformersModel?: string;
   }
 ): Promise<number[]> {
   try {
+    if (provider === "sentence-transformers") {
+      return await getSentenceTransformersEmbedding(text, config?.sentenceTransformersModel || "all-MiniLM-L6-v2");
+    }
+
     if (provider === "openai" && (config?.openaiClient || openai)) {
       const client = config?.openaiClient || openai;
       const response = await client!.embeddings.create({
@@ -1394,6 +1416,36 @@ Do not make up information. Always ground your answers in the provided sources.`
         console.error("WebSocket message error:", err);
       }
     });
+  });
+
+  // Admin-only routes
+  app.get("/api/admin/settings", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const settings = await storage.getAdminSettings();
+      res.json(settings || { embeddingProvider: "sentence-transformers", embeddingModel: "all-MiniLM-L6-v2" });
+    } catch (error) {
+      console.error("Error fetching admin settings:", error);
+      res.status(500).json({ message: "Failed to fetch admin settings" });
+    }
+  });
+
+  app.put("/api/admin/settings", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const { embeddingProvider, embeddingModel } = req.body;
+      await storage.upsertAdminSettings({ embeddingProvider, embeddingModel });
+      res.json({ message: "Settings updated" });
+    } catch (error) {
+      console.error("Error updating admin settings:", error);
+      res.status(500).json({ message: "Failed to update admin settings" });
+    }
   });
 
   return httpServer;

@@ -51,6 +51,7 @@ export const users = pgTable("users", {
   authProvider: varchar("auth_provider", { length: 20 }).default("email"), // email, google
   googleId: varchar("google_id").unique(),
   emailVerified: boolean("email_verified").default(false),
+  isAdmin: boolean("is_admin").default(false),
   verificationToken: varchar("verification_token"),
   verificationExpires: timestamp("verification_expires"),
   resetToken: varchar("reset_token"),
@@ -337,6 +338,23 @@ export const insertLiveChatMessageSchema = createInsertSchema(liveChatMessages).
   createdAt: true,
 });
 export type InsertLiveChatMessage = z.infer<typeof insertLiveChatMessageSchema>;
+
+// Admin settings table
+export const adminSettings = pgTable("admin_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  embeddingProvider: varchar("embedding_provider", { length: 50 }).default("sentence-transformers"), // sentence-transformers, openai, gemini, tarang_ai
+  embeddingModel: varchar("embedding_model", { length: 100 }).default("all-MiniLM-L6-v2"), // Model name for sentence-transformers
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type AdminSettings = typeof adminSettings.$inferSelect;
+export const insertAdminSettingsSchema = createInsertSchema(adminSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAdminSettings = z.infer<typeof insertAdminSettingsSchema>;
 
 // API Types for frontend
 export const chatRequestSchema = z.object({

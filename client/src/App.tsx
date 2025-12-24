@@ -19,6 +19,7 @@ import Knowledge from "@/pages/knowledge";
 import ChatbotBuilder from "@/pages/chatbot";
 import TestChat from "@/pages/test-chat";
 import Settings from "@/pages/settings";
+import AdminPanel from "@/pages/admin";
 import EmbedScript from "@/pages/embed";
 import MCPServer from "@/pages/mcp";
 import Analytics from "@/pages/analytics";
@@ -51,6 +52,7 @@ function AuthenticatedLayout() {
               <Route path="/chatbot" component={ChatbotBuilder} />
               <Route path="/test-chat" component={TestChat} />
               <Route path="/settings" component={Settings} />
+              <Route path="/admin" component={AdminPanel} />
               <Route path="/embed" component={EmbedScript} />
               <Route path="/mcp" component={MCPServer} />
               <Route path="/analytics" component={Analytics} />
