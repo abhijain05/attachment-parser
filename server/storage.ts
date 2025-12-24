@@ -61,6 +61,7 @@ export interface IStorage {
   // Chat session operations
   createChatSession(projectId: string, visitorId?: string): Promise<ChatSession>;
   getChatSession(id: string): Promise<ChatSession | undefined>;
+  deleteChatSession(id: string): Promise<void>;
   addChatMessage(message: { sessionId: string; role: string; content: string; sources?: any; tokensUsed?: number }): Promise<ChatMessage>;
   getChatMessages(sessionId: string): Promise<ChatMessage[]>;
   
@@ -255,6 +256,11 @@ export class DatabaseStorage implements IStorage {
   async getChatSession(id: string): Promise<ChatSession | undefined> {
     const [session] = await db.select().from(chatSessions).where(eq(chatSessions.id, id));
     return session;
+  }
+
+  async deleteChatSession(id: string): Promise<void> {
+    await db.delete(chatMessages).where(eq(chatMessages.sessionId, id));
+    await db.delete(chatSessions).where(eq(chatSessions.id, id));
   }
 
   async addChatMessage(message: { sessionId: string; role: string; content: string; sources?: any; tokensUsed?: number }): Promise<ChatMessage> {

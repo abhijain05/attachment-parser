@@ -593,6 +593,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if message is general chat (doesn't require knowledge base)
+  function isGeneralChat(message: string): boolean {
+    const generalPatterns = ["hi", "hello", "hey", "bye", "goodbye", "good morning", "good evening", "good night", "thanks", "thank you", "lol", "ok", "okay", "sure", "yes", "no", "how are you", "what's up", "sup"];
+    const lowerMsg = message.toLowerCase().trim();
+    return generalPatterns.some(pattern => lowerMsg === pattern || lowerMsg.startsWith(pattern + " ") || lowerMsg.endsWith(" " + pattern));
+  }
+
   // Chat / AI endpoint
   app.post("/api/chat", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -640,127 +647,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userGemini = new GoogleGenerativeAI(userGeminiKey);
       }
 
-      // Generate embedding for query using the configured provider
+      // Get previous chat history for context
+      const chatHistory = await storage.getChatMessages(session.id);
+      const recentHistory = chatHistory.slice(-6).map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n');
+
+      // Get userId for later
       const userId = getUserId(req);
-      const embeddingConfig = {
-        openaiClient: userOpenai || openai || undefined,
-        geminiClient: userGemini || gemini || undefined,
-        tarangAiUrl: chatbotConfig?.tarangAiUrl,
-        tarangAiApiKey: chatbotConfig?.tarangAiApiKey,
-        tarangAiModel: chatbotConfig?.tarangAiModel,
-      };
-      
-      let queryEmbedding: number[] = [];
-      try {
-        queryEmbedding = await getEmbedding(embeddingProvider, message, embeddingConfig);
-      } catch (err) {
-        console.warn("Failed to generate query embedding:", err);
-      }
-      
-      // Search for relevant context from knowledge base using semantic search
-      const relevantChunks = await storage.searchChunks(projectId, message, 5, queryEmbedding);
       
       let responseText = "";
       let tokensUsed = 0;
       const sources: { documentId: string; documentName: string; snippet: string }[] = [];
-      
-      console.log(`[Chat] Found ${relevantChunks.length} relevant chunks for query: "${message}"`);
-      if (relevantChunks.length > 0) {
-        console.log("[Chat] First chunk content length:", relevantChunks[0].content.length);
-      }
 
-      if (relevantChunks.length > 0) {
-        // Build context from chunks
-        const context = relevantChunks
-          .map((chunk) => `[Source: ${chunk.documentName}]\n${chunk.content}`)
-          .join("\n\n");
+      // Check if this is general chat (like "hi", "hello", "bye", etc.)
+      if (isGeneralChat(message)) {
+        // For general chat, respond quickly without knowledge base
+        const generalResponses: Record<string, string> = {
+          "hi": "Hi there! How can I help you today?",
+          "hello": "Hello! What can I do for you?",
+          "hey": "Hey! What's on your mind?",
+          "bye": "Goodbye! Feel free to reach out anytime.",
+          "goodbye": "Take care! See you soon.",
+          "good morning": "Good morning! Hope you have a great day!",
+          "good evening": "Good evening! How can I assist?",
+          "good night": "Good night! Rest well!",
+          "thanks": "You're welcome! Happy to help.",
+          "thank you": "You're welcome! Glad I could assist.",
+          "how are you": "I'm doing well, thank you for asking! How can I help you?",
+          "what's up": "Not much! What can I help you with today?",
+        };
 
-        // Deduplicate sources by documentId
-        const uniqueSources = new Map<string, { documentId: string; documentName: string; snippet: string }>();
-        for (const chunk of relevantChunks) {
-          if (!uniqueSources.has(chunk.documentId)) {
-            uniqueSources.set(chunk.documentId, {
-              documentId: chunk.documentId,
-              documentName: chunk.documentName,
-              snippet: chunk.content.slice(0, 150) + "...",
-            });
-          }
-        }
-        sources.push(...uniqueSources.values());
-
-        const tone = chatbotConfig?.tone || "professional";
+        const lowerMsg = message.toLowerCase().trim();
+        responseText = generalResponses[lowerMsg] || "Hi! How can I assist you with your questions?";
+        tokensUsed = 0;
         
-        const systemPrompt = `You are a helpful AI assistant. Answer questions ONLY based on the provided context. 
+        console.log(`[Chat] General chat detected: "${message}"`);
+      } else {
+        // For knowledge-based questions, search the knowledge base
+        let queryEmbedding: number[] = [];
+        try {
+          const embeddingConfig = {
+            openaiClient: userOpenai || openai || undefined,
+            geminiClient: userGemini || gemini || undefined,
+            tarangAiUrl: chatbotConfig?.tarangAiUrl,
+            tarangAiApiKey: chatbotConfig?.tarangAiApiKey,
+            tarangAiModel: chatbotConfig?.tarangAiModel,
+          };
+          queryEmbedding = await getEmbedding(embeddingProvider, message, embeddingConfig);
+        } catch (err) {
+          console.warn("Failed to generate query embedding:", err);
+        }
+        
+        // Search for relevant context from knowledge base using semantic search
+        const relevantChunks = await storage.searchChunks(projectId, message, 5, queryEmbedding);
+        
+        console.log(`[Chat] Found ${relevantChunks.length} relevant chunks for query: "${message}"`);
+        if (relevantChunks.length > 0) {
+          console.log("[Chat] First chunk content length:", relevantChunks[0].content.length);
+        }
+
+        if (relevantChunks.length > 0) {
+          // Build context from chunks
+          const context = relevantChunks
+            .map((chunk) => `[Source: ${chunk.documentName}]\n${chunk.content}`)
+            .join("\n\n");
+
+          // Deduplicate sources by documentId
+          const uniqueSources = new Map<string, { documentId: string; documentName: string; snippet: string }>();
+          for (const chunk of relevantChunks) {
+            if (!uniqueSources.has(chunk.documentId)) {
+              uniqueSources.set(chunk.documentId, {
+                documentId: chunk.documentId,
+                documentName: chunk.documentName,
+                snippet: chunk.content.slice(0, 150) + "...",
+              });
+            }
+          }
+          sources.push(...uniqueSources.values());
+
+          const tone = chatbotConfig?.tone || "professional";
+          
+          const systemPrompt = `You are a helpful AI assistant. Answer questions ONLY based on the provided context. 
 If the answer is not in the context, say "I don't have information about that in my knowledge base."
 Be ${tone} in your responses.
 Do not make up information. Always ground your answers in the provided sources.`;
 
-        if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
-          try {
-            const tarangUrl = chatbotConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
-            const fullPrompt = `${systemPrompt}\n\nContext:\n${context}\n\nQuestion: ${message}`;
-            responseText = await getTarangAIChatResponse(
-              fullPrompt,
-              tarangUrl,
-              chatbotConfig.tarangAiApiKey,
-              chatbotConfig.tarangAiModel,
-              session.id
-            );
-            if (!responseText || responseText.length < 2) {
-              console.warn("[Chat] Tarang AI returned empty/minimal response");
-              responseText = "I couldn't generate a meaningful response. The knowledge base may not contain relevant information for this query.";
-            }
-            tokensUsed = 0;
-          } catch (err) {
-            console.error("Tarang AI error:", err);
-            responseText = "I apologize, but I'm having trouble processing your request. Please check your Tarang AI configuration in settings.";
-          }
-        } else if (aiProvider === "gemini" && (userGemini || gemini)) {
-          try {
-            const geminiClient = userGemini || gemini;
-            const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
-            const fullPrompt = `${systemPrompt}\n\nContext:\n${context}\n\nQuestion: ${message}`;
-            const result = await model.generateContent(fullPrompt);
-            const rawResponse = result.response.text();
-            responseText = (rawResponse || "").trim();
-            if (!responseText || responseText.length < 2) {
-              console.warn("[Chat] Gemini returned empty/minimal response");
-              responseText = "I couldn't generate a meaningful response. The knowledge base may not contain relevant information for this query.";
-            }
-            tokensUsed = 0;
-          } catch (err) {
-            console.error("Gemini error:", err);
-            responseText = "I apologize, but I'm having trouble processing your request. Please check your Gemini API key in settings.";
-          }
-        } else if (userOpenai || openai) {
-          try {
-            const openaiClient = userOpenai || openai;
-            const response = await openaiClient!.chat.completions.create({
-              model: "gpt-5",
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: `Context:\n${context}\n\nQuestion: ${message}` },
-              ],
-              max_completion_tokens: 1024,
-            });
+          const fullContext = `${systemPrompt}\n\nPrevious context:\n${recentHistory || "No previous messages"}\n\nDocumentation:\n${context}\n\nQuestion: ${message}`;
 
-            const rawResponse = response.choices[0].message.content;
-            responseText = (rawResponse || "").trim();
-            if (!responseText || responseText.length < 2) {
-              console.warn("[Chat] OpenAI returned empty/minimal response");
-              responseText = "I couldn't generate a meaningful response. The knowledge base may not contain relevant information for this query.";
+          if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
+            try {
+              const tarangUrl = chatbotConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
+              responseText = await getTarangAIChatResponse(
+                fullContext,
+                tarangUrl,
+                chatbotConfig.tarangAiApiKey,
+                chatbotConfig.tarangAiModel,
+                session.id
+              );
+              if (!responseText || responseText.length < 2) {
+                console.warn("[Chat] Tarang AI returned empty/minimal response");
+                responseText = "I don't have information about that in my knowledge base.";
+              }
+              tokensUsed = 0;
+            } catch (err) {
+              console.error("Tarang AI error:", err);
+              responseText = "I apologize, but I'm having trouble processing your request. Please check your Tarang AI configuration in settings.";
             }
-            tokensUsed = response.usage?.total_tokens || 0;
-          } catch (err) {
-            console.error("OpenAI error:", err);
-            responseText = "I apologize, but I'm having trouble processing your request. Please check your OpenAI API key in settings.";
+          } else if (aiProvider === "gemini" && (userGemini || gemini)) {
+            try {
+              const geminiClient = userGemini || gemini;
+              const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
+              const result = await model.generateContent(fullContext);
+              const rawResponse = result.response.text();
+              responseText = (rawResponse || "").trim();
+              if (!responseText || responseText.length < 2) {
+                console.warn("[Chat] Gemini returned empty/minimal response");
+                responseText = "I don't have information about that in my knowledge base.";
+              }
+              tokensUsed = 0;
+            } catch (err) {
+              console.error("Gemini error:", err);
+              responseText = "I apologize, but I'm having trouble processing your request. Please check your Gemini API key in settings.";
+            }
+          } else if (userOpenai || openai) {
+            try {
+              const openaiClient = userOpenai || openai;
+              const response = await openaiClient!.chat.completions.create({
+                model: "gpt-5",
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: fullContext },
+                ],
+                max_completion_tokens: 1024,
+              });
+
+              const rawResponse = response.choices[0].message.content;
+              responseText = (rawResponse || "").trim();
+              if (!responseText || responseText.length < 2) {
+                console.warn("[Chat] OpenAI returned empty/minimal response");
+                responseText = "I don't have information about that in my knowledge base.";
+              }
+              tokensUsed = response.usage?.total_tokens || 0;
+            } catch (err) {
+              console.error("OpenAI error:", err);
+              responseText = "I apologize, but I'm having trouble processing your request. Please check your OpenAI API key in settings.";
+            }
+          } else {
+            // No API key configured
+            responseText = "Please configure an API key in Project Settings before using the chatbot.";
           }
         } else {
-          // No API key configured
-          responseText = "Please configure an API key in Project Settings before using the chatbot.";
+          responseText = "I don't have any relevant information in my knowledge base to answer that question. Please make sure you've uploaded documents containing information about this topic.";
         }
-      } else {
-        responseText = "I don't have any relevant information in my knowledge base to answer that question. Please make sure you've uploaded documents containing information about this topic.";
       }
 
       // Save assistant message
@@ -768,7 +805,7 @@ Do not make up information. Always ground your answers in the provided sources.`
         sessionId: session.id,
         role: "assistant",
         content: responseText,
-        sources,
+        sources: sources.length > 0 ? sources : undefined,
         tokensUsed,
       });
 
@@ -778,7 +815,7 @@ Do not make up information. Always ground your answers in the provided sources.`
         eventType: "query",
         metadata: {
           query: message,
-          answered: relevantChunks.length > 0,
+          answered: sources.length > 0 || isGeneralChat(message),
           tokensUsed,
           sourceDocIds: sources.map((s) => s.documentId),
         },
@@ -789,13 +826,21 @@ Do not make up information. Always ground your answers in the provided sources.`
         responseText = "No response generated. Please try a different query or ensure your knowledge base has relevant content.";
       }
       
+      // Get all messages for this session
+      const allMessages = await storage.getChatMessages(session.id);
+      
       const responsePayload = {
         sessionId: session.id,
         message: responseText,
         sources: sources.length > 0 ? sources : undefined,
+        history: allMessages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          sources: msg.sources,
+        })),
       };
       
-      console.log("[Chat] Sending response:", { messageLength: responsePayload.message.length, hasSources: !!responsePayload.sources });
+      console.log("[Chat] Sending response:", { messageLength: responsePayload.message.length, hasSources: !!responsePayload.sources, historyLength: allMessages.length });
       res.json(responsePayload);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -803,6 +848,28 @@ Do not make up information. Always ground your answers in the provided sources.`
       }
       console.error("Error in chat:", error);
       res.status(500).json({ message: "Failed to process chat" });
+    }
+  });
+
+  // Delete chat session endpoint
+  app.delete("/api/chat/:sessionId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const session = await storage.getChatSession(req.params.sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      // Verify session ownership through project
+      const project = await storage.getProject(session.projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      await storage.deleteChatSession(req.params.sessionId);
+      res.json({ message: "Session deleted" });
+    } catch (error) {
+      console.error("Error deleting chat session:", error);
+      res.status(500).json({ message: "Failed to delete session" });
     }
   });
 
