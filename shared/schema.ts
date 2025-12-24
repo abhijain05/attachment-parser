@@ -197,7 +197,9 @@ export const chatbotConfigs = pgTable("chatbot_configs", {
   enableLiveChat: boolean("enable_live_chat").default(false),
   aiProvider: varchar("ai_provider", { length: 20 }).default("openai"), // openai, gemini, tarang_ai
   openaiApiKey: text("openai_api_key"), // user's own API key
+  openaiModel: varchar("openai_model", { length: 100 }).default("gpt-4o"), // OpenAI model (e.g., gpt-4o, gpt-4-turbo, etc.)
   geminiApiKey: text("gemini_api_key"), // user's own API key
+  geminiModel: varchar("gemini_model", { length: 100 }).default("gemini-2.0-flash"), // Gemini model (e.g., gemini-2.0-flash, gemini-1.5-pro, etc.)
   tarangAiUrl: text("tarang_ai_url"), // Tarang AI endpoint URL
   tarangAiApiKey: text("tarang_ai_api_key"), // Tarang AI API key
   tarangAiModel: varchar("tarang_ai_model", { length: 100 }), // Tarang AI model name (e.g., llama3.2:3b)

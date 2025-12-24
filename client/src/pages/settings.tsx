@@ -14,8 +14,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, CheckCircle, Zap } from "lucide-react";
 import type { Project, ChatbotConfig } from "@shared/schema";
+
+// OpenAI models
+const OPENAI_MODELS = [
+  { value: "gpt-4o", label: "GPT-4o (Latest)" },
+  { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
+  { value: "gpt-4", label: "GPT-4" },
+  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
+];
+
+// Google Gemini models
+const GEMINI_MODELS = [
+  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Latest)" },
+  { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+  { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+  { value: "gemini-1.0-pro", label: "Gemini 1.0 Pro" },
+];
+
+// Tarang AI models
+const TARANG_AI_MODELS = [
+  { value: "short", label: "Short (tinyllama:latest) - Fast" },
+  { value: "medium", label: "Medium (llama3.2:3b) - Better Quality" },
+];
 
 export default function Settings() {
   const { toast } = useToast();
@@ -24,11 +46,12 @@ export default function Settings() {
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showTarangAiKey, setShowTarangAiKey] = useState(false);
   const [openaiKey, setOpenaiKey] = useState("");
+  const [openaiModel, setOpenaiModel] = useState("gpt-4o");
   const [geminiKey, setGeminiKey] = useState("");
+  const [geminiModel, setGeminiModel] = useState("gemini-2.0-flash");
   const [tarangAiApiKey, setTarangAiApiKey] = useState("");
   const [tarangAiUrl, setTarangAiUrl] = useState("");
   const [tarangAiModel, setTarangAiModel] = useState("");
-  const [aiProvider, setAiProvider] = useState<"openai" | "gemini" | "tarang_ai">("openai");
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -51,18 +74,19 @@ export default function Settings() {
     mutationFn: async () => {
       return await apiRequest("PUT", `/api/chatbot-config/${selectedProject}`, {
         openaiApiKey: openaiKey || undefined,
+        openaiModel: openaiModel || undefined,
         geminiApiKey: geminiKey || undefined,
+        geminiModel: geminiModel || undefined,
         tarangAiApiKey: tarangAiApiKey || undefined,
         tarangAiUrl: tarangAiUrl || undefined,
         tarangAiModel: tarangAiModel || undefined,
-        aiProvider,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/chatbot-config", selectedProject] });
       toast({
         title: "Settings saved",
-        description: "Your API keys and provider have been saved securely.",
+        description: "Your API keys and models have been saved securely.",
       });
     },
     onError: () => {
@@ -77,23 +101,23 @@ export default function Settings() {
   const handleProjectChange = (projectId: string) => {
     setSelectedProject(projectId);
     setOpenaiKey("");
+    setOpenaiModel("gpt-4o");
     setGeminiKey("");
+    setGeminiModel("gemini-2.0-flash");
     setTarangAiApiKey("");
     setTarangAiUrl("");
     setTarangAiModel("");
-    setAiProvider("openai");
   };
 
-  // Update provider when config loads
-  if (config && aiProvider === "openai") {
-    const provider = config.aiProvider as "openai" | "gemini" | "tarang_ai";
-    if (provider && provider !== aiProvider) {
-      setAiProvider(provider);
-      if (provider === "tarang_ai") {
-        setTarangAiUrl(config.tarangAiUrl || "");
-        setTarangAiModel(config.tarangAiModel || "");
-      }
-    }
+  // Update settings when config loads
+  if (config && !openaiKey && !geminiKey && !tarangAiApiKey) {
+    if (config.openaiApiKey) setOpenaiKey(config.openaiApiKey);
+    if (config.openaiModel) setOpenaiModel(config.openaiModel);
+    if (config.geminiApiKey) setGeminiKey(config.geminiApiKey);
+    if (config.geminiModel) setGeminiModel(config.geminiModel);
+    if (config.tarangAiApiKey) setTarangAiApiKey(config.tarangAiApiKey);
+    if (config.tarangAiUrl) setTarangAiUrl(config.tarangAiUrl);
+    if (config.tarangAiModel) setTarangAiModel(config.tarangAiModel);
   }
 
   return (
@@ -127,45 +151,44 @@ export default function Settings() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue="api-keys" className="space-y-4">
+        <Tabs defaultValue="models" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+            <TabsTrigger value="models">AI Models</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="api-keys" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Provider</CardTitle>
-                <CardDescription>
-                  Choose which AI provider to use for generating responses
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Select value={aiProvider} onValueChange={(value) => setAiProvider(value as "openai" | "gemini" | "tarang_ai")}>
-                  <SelectTrigger className="w-64" data-testid="select-ai-provider">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="openai">OpenAI (GPT-5)</SelectItem>
-                    <SelectItem value="gemini">Google Gemini</SelectItem>
-                    <SelectItem value="tarang_ai">Tarang AI (Self-Hosted)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
+          <TabsContent value="models" className="space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Configure AI Models</h2>
+              <p className="text-muted-foreground text-sm mb-6">
+                Set up API keys and select specific models for each AI provider. Configure all models or choose your primary provider.
+              </p>
+            </div>
 
-            <Card>
+            {/* OpenAI Configuration Card */}
+            <Card className="border-2">
               <CardHeader>
-                <CardTitle>API Keys</CardTitle>
-                <CardDescription>
-                  Provide your own API keys so the chatbot can respond to queries. The AI will use MCP Server to retrieve context from your knowledge base.
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-black dark:bg-white flex items-center justify-center">
+                      <span className="text-white dark:text-black font-bold text-sm">OAI</span>
+                    </div>
+                    <div>
+                      <CardTitle>OpenAI</CardTitle>
+                      <CardDescription>GPT-4, GPT-4 Turbo, and more</CardDescription>
+                    </div>
+                  </div>
+                  {openaiKey && (
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 dark:bg-green-950">
+                      <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-300" />
+                      <span className="text-xs font-medium text-green-700 dark:text-green-300">Configured</span>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* OpenAI Key */}
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="openai-key">OpenAI API Key</Label>
+                  <Label htmlFor="openai-key">API Key</Label>
                   <div className="flex gap-2">
                     <Input
                       id="openai-key"
@@ -189,9 +212,51 @@ export default function Settings() {
                   </p>
                 </div>
 
-                {/* Gemini Key */}
                 <div className="space-y-2">
-                  <Label htmlFor="gemini-key">Google Gemini API Key</Label>
+                  <Label htmlFor="openai-model">Model</Label>
+                  <Select value={openaiModel} onValueChange={setOpenaiModel} disabled={!openaiKey}>
+                    <SelectTrigger id="openai-model" data-testid="select-openai-model">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OPENAI_MODELS.map((model) => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Select which OpenAI model to use for your chatbot
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Google Gemini Configuration Card */}
+            <Card className="border-2">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">G</span>
+                    </div>
+                    <div>
+                      <CardTitle>Google Gemini</CardTitle>
+                      <CardDescription>Gemini 2.0, 1.5 Pro, and more</CardDescription>
+                    </div>
+                  </div>
+                  {geminiKey && (
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 dark:bg-green-950">
+                      <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-300" />
+                      <span className="text-xs font-medium text-green-700 dark:text-green-300">Configured</span>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gemini-key">API Key</Label>
                   <div className="flex gap-2">
                     <Input
                       id="gemini-key"
@@ -215,9 +280,51 @@ export default function Settings() {
                   </p>
                 </div>
 
-                {/* Tarang AI Configuration */}
                 <div className="space-y-2">
-                  <Label htmlFor="tarang-ai-url">Tarang AI URL</Label>
+                  <Label htmlFor="gemini-model">Model</Label>
+                  <Select value={geminiModel} onValueChange={setGeminiModel} disabled={!geminiKey}>
+                    <SelectTrigger id="gemini-model" data-testid="select-gemini-model">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GEMINI_MODELS.map((model) => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Select which Gemini model to use for your chatbot
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tarang AI Configuration Card */}
+            <Card className="border-2">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center">
+                      <Zap className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle>Tarang AI</CardTitle>
+                      <CardDescription>Self-hosted local models</CardDescription>
+                    </div>
+                  </div>
+                  {tarangAiApiKey && (
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 dark:bg-green-950">
+                      <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-300" />
+                      <span className="text-xs font-medium text-green-700 dark:text-green-300">Configured</span>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tarang-ai-url">Endpoint URL</Label>
                   <Input
                     id="tarang-ai-url"
                     type="text"
@@ -232,7 +339,7 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="tarang-ai-key">Tarang AI API Key</Label>
+                  <Label htmlFor="tarang-ai-key">API Key</Label>
                   <div className="flex gap-2">
                     <Input
                       id="tarang-ai-key"
@@ -257,55 +364,63 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="tarang-ai-model">Tarang AI Model</Label>
-                  <Select value={tarangAiModel} onValueChange={setTarangAiModel}>
+                  <Label htmlFor="tarang-ai-model">Model</Label>
+                  <Select value={tarangAiModel} onValueChange={setTarangAiModel} disabled={!tarangAiApiKey}>
                     <SelectTrigger id="tarang-ai-model" data-testid="select-tarang-ai-model">
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="short">Short (tinyllama:latest) - Fast</SelectItem>
-                      <SelectItem value="medium">Medium (llama3.2:3b) - Better Quality</SelectItem>
+                      {TARANG_AI_MODELS.map((model) => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     Choose the model to use for embeddings and responses
                   </p>
                 </div>
-
-                <div className="border-t pt-4 flex gap-2">
-                  <Button
-                    onClick={() => saveMutation.mutate()}
-                    disabled={!openaiKey && !geminiKey && !tarangAiApiKey || saveMutation.isPending}
-                    data-testid="button-save-keys"
-                  >
-                    {saveMutation.isPending ? "Saving..." : "Save Configuration"}
-                  </Button>
-                  <Button variant="outline" onClick={() => {
-                    setOpenaiKey("");
-                    setGeminiKey("");
-                    setTarangAiApiKey("");
-                    setTarangAiUrl("");
-                    setTarangAiModel("");
-                  }} data-testid="button-clear-keys">
-                    Clear
-                  </Button>
-                </div>
-
-                {(openaiKey || geminiKey || tarangAiApiKey) && (
-                  <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg text-sm text-green-700 dark:text-green-200">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Configuration will be saved securely in your project settings.</span>
-                  </div>
-                )}
-
-                {!openaiKey && !geminiKey && !tarangAiApiKey && (
-                  <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg text-sm text-yellow-700 dark:text-yellow-200">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Please provide at least one AI provider configuration for the chatbot to work.</span>
-                  </div>
-                )}
               </CardContent>
             </Card>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 sticky bottom-0 bg-background/95 backdrop-blur p-4 -mx-6 px-6">
+              <Button
+                onClick={() => saveMutation.mutate()}
+                disabled={!openaiKey && !geminiKey && !tarangAiApiKey || saveMutation.isPending}
+                data-testid="button-save-keys"
+                size="lg"
+              >
+                {saveMutation.isPending ? "Saving..." : "Save Configuration"}
+              </Button>
+              <Button variant="outline" onClick={() => {
+                setOpenaiKey("");
+                setOpenaiModel("gpt-4o");
+                setGeminiKey("");
+                setGeminiModel("gemini-2.0-flash");
+                setTarangAiApiKey("");
+                setTarangAiUrl("");
+                setTarangAiModel("");
+              }} data-testid="button-clear-keys" size="lg">
+                Clear All
+              </Button>
+            </div>
+
+            {/* Status Messages */}
+            {(openaiKey || geminiKey || tarangAiApiKey) && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg text-sm text-green-700 dark:text-green-200">
+                <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                <span>Configuration will be saved securely in your project settings.</span>
+              </div>
+            )}
+
+            {!openaiKey && !geminiKey && !tarangAiApiKey && (
+              <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg text-sm text-yellow-700 dark:text-yellow-200">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>Please provide at least one AI provider configuration for the chatbot to work.</span>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="info" className="space-y-4">
@@ -319,16 +434,16 @@ export default function Settings() {
                   <p className="text-muted-foreground">Upload your documents to the Knowledge Library. They'll be automatically indexed and chunked for retrieval.</p>
                 </div>
                 <div>
-                  <h4 className="font-medium mb-2">2. API Key Configuration</h4>
-                  <p className="text-muted-foreground">Provide your own API keys from OpenAI or Gemini above. These keys are stored securely and used only for your chatbot.</p>
+                  <h4 className="font-medium mb-2">2. Configure AI Models</h4>
+                  <p className="text-muted-foreground">Set up API keys for your preferred providers (OpenAI, Google Gemini, or Tarang AI) and select specific model versions. You can configure multiple providers and use different models for different purposes.</p>
                 </div>
                 <div>
                   <h4 className="font-medium mb-2">3. Context Retrieval via MCP</h4>
-                  <p className="text-muted-foreground">When a user sends a question, the MCP Server searches your knowledge base and retrieves relevant document chunks.</p>
+                  <p className="text-muted-foreground">When a user sends a question, the MCP Server searches your knowledge base and retrieves relevant document chunks using the configured embedding model.</p>
                 </div>
                 <div>
                   <h4 className="font-medium mb-2">4. AI Response</h4>
-                  <p className="text-muted-foreground">Your API key is used to send the question + context to OpenAI/Gemini, which generates an informed response based on your documents.</p>
+                  <p className="text-muted-foreground">Your API key is used to send the question + context to your selected AI model (GPT-4o, Gemini, or Tarang AI), which generates an informed response based on your documents.</p>
                 </div>
                 <div>
                   <h4 className="font-medium mb-2">5. Test & Deploy</h4>
