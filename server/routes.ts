@@ -84,6 +84,10 @@ async function getEmbedding(
   }
 }
 
+// Constants
+const CHAT_HISTORY_SUMMARIZE_THRESHOLD = 10; // Summarize when history exceeds 10 messages
+const CHAT_HISTORY_KEEP_RECENT = 4; // Keep last 4 recent messages after summarization
+
 // Tarang AI Chat/LLM provider
 async function getTarangAIChatResponse(
   prompt: string,
@@ -130,6 +134,54 @@ async function getTarangAIChatResponse(
     return result;
   } catch (err) {
     console.error("[Tarang AI] Error calling chat endpoint:", err);
+    return "";
+  }
+}
+
+// Summarize chat history using AI
+async function summarizeChatHistory(
+  chatMessages: any[],
+  aiProvider: string,
+  tarangAiUrl?: string,
+  tarangAiApiKey?: string,
+  tarangAiModel?: string,
+  userOpenai?: OpenAI | null,
+  userGemini?: GoogleGenerativeAI | null
+): Promise<string> {
+  try {
+    // Filter out system messages and take all but the last 4 (to summarize)
+    const messagesToSummarize = chatMessages.slice(0, -CHAT_HISTORY_KEEP_RECENT);
+    const conversationText = messagesToSummarize
+      .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+      .join('\n');
+
+    const summaryPrompt = `Please provide a concise summary of the following conversation. Focus on key topics, decisions, and important details discussed:\n\n${conversationText}\n\nProvide the summary in 2-3 sentences.`;
+
+    let summary = "";
+
+    if (aiProvider === "tarang_ai" && tarangAiApiKey && tarangAiModel && tarangAiUrl) {
+      console.log("[Chat] Summarizing history with Tarang AI...");
+      summary = await getTarangAIChatResponse(summaryPrompt, tarangAiUrl, tarangAiApiKey, tarangAiModel, "summary-" + Date.now());
+    } else if (aiProvider === "gemini" && (userGemini || gemini)) {
+      console.log("[Chat] Summarizing history with Gemini...");
+      const geminiClient = userGemini || gemini;
+      const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const result = await model.generateContent(summaryPrompt);
+      summary = result.response.text() || "";
+    } else if (userOpenai || openai) {
+      console.log("[Chat] Summarizing history with OpenAI...");
+      const openaiClient = userOpenai || openai;
+      const response = await openaiClient!.chat.completions.create({
+        model: "gpt-5",
+        messages: [{ role: "user", content: summaryPrompt }],
+        max_completion_tokens: 256,
+      });
+      summary = response.choices[0].message.content || "";
+    }
+
+    return summary.trim();
+  } catch (err) {
+    console.error("[Chat] Error summarizing history:", err);
     return "";
   }
 }
@@ -648,8 +700,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get previous chat history for context
-      const chatHistory = await storage.getChatMessages(session.id);
-      const recentHistory = chatHistory.slice(-6).map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n');
+      let chatHistory = await storage.getChatMessages(session.id);
+      
+      // Auto-summarize history if it exceeds threshold
+      let historyContext = "";
+      if (chatHistory.length > CHAT_HISTORY_SUMMARIZE_THRESHOLD) {
+        console.log(`[Chat] History has ${chatHistory.length} messages, triggering auto-summarization...`);
+        
+        const summary = await summarizeChatHistory(
+          chatHistory,
+          aiProvider,
+          chatbotConfig?.tarangAiUrl,
+          chatbotConfig?.tarangAiApiKey,
+          chatbotConfig?.tarangAiModel,
+          userOpenai,
+          userGemini
+        );
+        
+        if (summary) {
+          console.log(`[Chat] History summarized (${summary.length} chars)`);
+          // Keep only recent messages + summary
+          const recentMessages = chatHistory.slice(-CHAT_HISTORY_KEEP_RECENT);
+          const summaryMessage = `[Previous conversation summary]\n${summary}`;
+          historyContext = `${summaryMessage}\n\n${recentMessages.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n')}`;
+        } else {
+          // Fallback if summarization fails
+          historyContext = chatHistory.slice(-8).map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n');
+        }
+      } else {
+        // Use last 6 messages if history is short
+        historyContext = chatHistory.slice(-6).map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n');
+      }
 
       // Get userId for later
       const userId = getUserId(req);
@@ -731,7 +812,7 @@ If the answer is not in the context, say "I don't have information about that in
 Be ${tone} in your responses.
 Do not make up information. Always ground your answers in the provided sources.`;
 
-          const fullContext = `${systemPrompt}\n\nPrevious context:\n${recentHistory || "No previous messages"}\n\nDocumentation:\n${context}\n\nQuestion: ${message}`;
+          const fullContext = `${systemPrompt}\n\nPrevious context:\n${historyContext || "No previous messages"}\n\nDocumentation:\n${context}\n\nQuestion: ${message}`;
 
           if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
             try {
