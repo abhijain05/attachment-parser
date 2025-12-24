@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, MessageCircle, File, Loader2 } from "lucide-react";
+import { Send, MessageCircle, File, Loader2, Paperclip, X } from "lucide-react";
 import type { Project, ChatMessage } from "@shared/schema";
 
 interface ChatResponse {
@@ -27,13 +27,51 @@ export default function TestChat() {
   const { toast } = useToast();
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [sessionId, setSessionId] = useState<string>("");
-  const [messages, setMessages] = useState<Array<{ role: string; content: string; sources?: any }>>([]);
+  const [messages, setMessages] = useState<Array<{ role: string; content: string; sources?: any; attachments?: any }>>([]);
   const [inputValue, setInputValue] = useState("");
+  const [attachments, setAttachments] = useState<Array<{ name: string; type: string; content: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        let content = event.target?.result as string;
+        
+        // Limit content size to 100KB
+        if (content.length > 100000) {
+          content = content.substring(0, 100000) + "...[file truncated]";
+        }
+
+        setAttachments((prev) => [...prev, {
+          name: file.name,
+          type: file.type || "text/plain",
+          content: content,
+        }]);
+      };
+      
+      // Read as text for supported types, data URL for images
+      if (file.type.startsWith("image/")) {
+        reader.readAsDataURL(file);
+      } else if (file.type === "application/pdf" || file.type.includes("word") || file.type.includes("document")) {
+        reader.readAsDataURL(file);
+      } else {
+        reader.readAsText(file);
+      }
+    }
+    
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -41,6 +79,7 @@ export default function TestChat() {
         projectId: selectedProject,
         sessionId: sessionId || undefined,
         message,
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
       return res.json();
     },
@@ -56,6 +95,7 @@ export default function TestChat() {
         return;
       }
       setSessionId(data.sessionId);
+      setAttachments([]);
       setMessages((prev) => [
         ...prev,
         {
@@ -193,6 +233,23 @@ export default function TestChat() {
           </CardContent>
 
           <div className="border-t p-4 space-y-2">
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 pb-2">
+                {attachments.map((att, idx) => (
+                  <div key={idx} className="flex items-center gap-1 bg-muted px-2 py-1 rounded text-xs">
+                    <File className="h-3 w-3" />
+                    <span>{att.name}</span>
+                    <button
+                      onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                      className="ml-1 hover:text-destructive"
+                      data-testid={`button-remove-attachment-${idx}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
               <Input
                 placeholder="Type your question..."
@@ -203,6 +260,15 @@ export default function TestChat() {
                 data-testid="input-chat-message"
               />
               <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={chatMutation.isPending}
+                data-testid="button-attach-file"
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              <Button
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || chatMutation.isPending}
                 size="icon"
@@ -210,6 +276,15 @@ export default function TestChat() {
               >
                 <Send className="h-4 w-4" />
               </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.txt,.md,.png,.jpg,.jpeg,.gif,.doc,.docx"
+                onChange={handleFileSelect}
+                className="hidden"
+                data-testid="input-file-upload"
+              />
             </div>
             {!selectedProject && (
               <p className="text-xs text-muted-foreground">

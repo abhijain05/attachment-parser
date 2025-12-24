@@ -244,6 +244,7 @@ export const chatMessages = pgTable("chat_messages", {
   sessionId: varchar("session_id").notNull().references(() => chatSessions.id, { onDelete: "cascade" }),
   role: varchar("role", { length: 20 }).notNull(), // user, assistant
   content: text("content").notNull(),
+  attachments: jsonb("attachments").$type<{ name: string; type: string; content: string }[]>(),
   sources: jsonb("sources").$type<{ documentId: string; chunkId: string; snippet: string }[]>(),
   tokensUsed: integer("tokens_used"),
   createdAt: timestamp("created_at").defaultNow(),

@@ -700,8 +700,9 @@ Respond with ONLY "yes" or "no".
         projectId: z.string(),
         sessionId: z.string().optional(),
         message: z.string().min(1),
+        attachments: z.array(z.object({ name: z.string(), type: z.string(), content: z.string() })).optional(),
       });
-      const { projectId, sessionId, message } = schema.parse(req.body);
+      const { projectId, sessionId, message, attachments } = schema.parse(req.body);
 
       // Verify project ownership
       const project = await storage.getProject(projectId);
@@ -715,11 +716,12 @@ Respond with ONLY "yes" or "no".
         session = await storage.createChatSession(projectId);
       }
 
-      // Save user message
+      // Save user message with attachments
       await storage.addChatMessage({
         sessionId: session.id,
         role: "user",
         content: message,
+        attachments: attachments,
       });
 
       // Get chatbot config with user's API keys
