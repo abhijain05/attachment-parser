@@ -652,6 +652,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return generalPatterns.some(pattern => lowerMsg === pattern || lowerMsg.startsWith(pattern + " ") || lowerMsg.endsWith(" " + pattern));
   }
 
+  // Detect if message needs knowledge base (ask AI to decide)
+  async function detectNeedsKnowledgeBase(
+    message: string,
+    aiProvider: string,
+    tarangAiUrl?: string,
+    tarangAiApiKey?: string,
+    tarangAiModel?: string,
+    userOpenai?: OpenAI | null,
+    userGemini?: GoogleGenerativeAI | null
+  ): Promise<boolean> {
+    try {
+      const intentPrompt = `Analyze this message and decide: Does it require looking up documents/knowledge base information?
+      
+Message: "${message}"
+
+Respond with ONLY "yes" or "no".
+- "yes" = needs knowledge base lookup (questions about specific topics, documents, skills, experience, etc.)
+- "no" = general chat or doesn't need knowledge base (greetings, general conversation, meta questions about the bot)`;
+
+      let decision = "";
+
+      if (aiProvider === "tarang_ai" && tarangAiApiKey && tarangAiModel && tarangAiUrl) {
+        decision = await getTarangAIChatResponse(intentPrompt, tarangAiUrl, tarangAiApiKey, tarangAiModel, "intent-" + Date.now());
+      } else if (aiProvider === "gemini" && (userGemini || gemini)) {
+        const geminiClient = userGemini || gemini;
+        const model = geminiClient!.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await model.generateContent(intentPrompt);
+        decision = result.response.text() || "";
+      } else if (userOpenai || openai) {
+        const openaiClient = userOpenai || openai;
+        const response = await openaiClient!.chat.completions.create({
+          model: "gpt-5",
+          messages: [{ role: "user", content: intentPrompt }],
+          max_completion_tokens: 10,
+        });
+        decision = response.choices[0].message.content || "";
+      }
+
+      const result = decision.toLowerCase().includes("yes");
+      console.log(`[Chat] Intent detection: "${message.substring(0, 50)}..." -> needs_knowledge_base: ${result}`);
+      return result;
+    } catch (err) {
+      console.error("[Chat] Error detecting intent:", err);
+      // Default to true (search chunks) if detection fails
+      return true;
+    }
+  }
+
   // Chat / AI endpoint
   app.post("/api/chat", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -763,23 +811,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`[Chat] General chat detected: "${message}"`);
       } else {
-        // For knowledge-based questions, search the knowledge base
-        let queryEmbedding: number[] = [];
-        try {
-          const embeddingConfig = {
-            openaiClient: userOpenai || openai || undefined,
-            geminiClient: userGemini || gemini || undefined,
-            tarangAiUrl: chatbotConfig?.tarangAiUrl,
-            tarangAiApiKey: chatbotConfig?.tarangAiApiKey,
-            tarangAiModel: chatbotConfig?.tarangAiModel,
-          };
-          queryEmbedding = await getEmbedding(embeddingProvider, message, embeddingConfig);
-        } catch (err) {
-          console.warn("Failed to generate query embedding:", err);
+        // Detect if this message needs knowledge base chunks
+        const needsKnowledge = await detectNeedsKnowledgeBase(
+          message,
+          aiProvider,
+          chatbotConfig?.tarangAiUrl,
+          chatbotConfig?.tarangAiApiKey,
+          chatbotConfig?.tarangAiModel,
+          userOpenai,
+          userGemini
+        );
+
+        // Only search for chunks if AI detected that knowledge base is needed
+        let relevantChunks: any[] = [];
+        if (needsKnowledge) {
+          let queryEmbedding: number[] = [];
+          try {
+            const embeddingConfig = {
+              openaiClient: userOpenai || openai || undefined,
+              geminiClient: userGemini || gemini || undefined,
+              tarangAiUrl: chatbotConfig?.tarangAiUrl,
+              tarangAiApiKey: chatbotConfig?.tarangAiApiKey,
+              tarangAiModel: chatbotConfig?.tarangAiModel,
+            };
+            queryEmbedding = await getEmbedding(embeddingProvider, message, embeddingConfig);
+          } catch (err) {
+            console.warn("Failed to generate query embedding:", err);
+          }
+          
+          // Search for relevant context from knowledge base using semantic search
+          relevantChunks = await storage.searchChunks(projectId, message, 5, queryEmbedding);
         }
-        
-        // Search for relevant context from knowledge base using semantic search
-        const relevantChunks = await storage.searchChunks(projectId, message, 5, queryEmbedding);
         
         console.log(`[Chat] Found ${relevantChunks.length} relevant chunks for query: "${message}"`);
         if (relevantChunks.length > 0) {
