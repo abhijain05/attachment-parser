@@ -10,6 +10,7 @@ import {
   analyticsEvents,
   visitorSessions,
   liveChatMessages,
+  adminSettings,
   type User,
   type UpsertUser,
   type Project,
@@ -28,6 +29,8 @@ import {
   type InsertVisitorSession,
   type LiveChatMessage,
   type InsertLiveChatMessage,
+  type AdminSettings,
+  type InsertAdminSettings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -100,6 +103,10 @@ export interface IStorage {
   // Document embeddings operations
   createDocumentEmbeddings(embeddings: InsertDocumentEmbedding[]): Promise<void>;
   getDocumentEmbeddings(userId: string, documentId: string): Promise<DocumentEmbedding[]>;
+
+  // Admin settings operations
+  getAdminSettings(): Promise<AdminSettings | undefined>;
+  upsertAdminSettings(data: Partial<InsertAdminSettings>): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {

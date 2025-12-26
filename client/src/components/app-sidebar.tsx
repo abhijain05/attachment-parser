@@ -10,6 +10,7 @@ import {
   Settings,
   Sliders,
   LogOut,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -162,6 +163,33 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarSeparator />
+
+        {user?.isAdmin && (
+          <>
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Admin
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === "/admin"}
+                      data-testid="nav-admin"
+                    >
+                      <Link href="/admin">
+                        <Shield className="h-4 w-4" />
+                        <span>Admin Settings</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            <SidebarSeparator />
+          </>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
