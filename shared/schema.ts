@@ -356,6 +356,37 @@ export const insertAdminSettingsSchema = createInsertSchema(adminSettings).omit(
 });
 export type InsertAdminSettings = z.infer<typeof insertAdminSettingsSchema>;
 
+// User model assignments - admin assigns AI models per user
+export const userModelAssignments = pgTable("user_model_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  aiProvider: varchar("ai_provider", { length: 20 }).default("tarang_ai"), // openai, gemini, tarang_ai
+  openaiApiKey: text("openai_api_key"),
+  openaiModel: varchar("openai_model", { length: 100 }).default("gpt-4o"),
+  geminiApiKey: text("gemini_api_key"),
+  geminiModel: varchar("gemini_model", { length: 100 }).default("gemini-2.0-flash"),
+  tarangAiUrl: text("tarang_ai_url"),
+  tarangAiApiKey: text("tarang_ai_api_key"),
+  tarangAiModel: varchar("tarang_ai_model", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const userModelAssignmentsRelations = relations(userModelAssignments, ({ one }) => ({
+  user: one(users, {
+    fields: [userModelAssignments.userId],
+    references: [users.id],
+  }),
+}));
+
+export type UserModelAssignment = typeof userModelAssignments.$inferSelect;
+export const insertUserModelAssignmentSchema = createInsertSchema(userModelAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertUserModelAssignment = z.infer<typeof insertUserModelAssignmentSchema>;
+
 // API Types for frontend
 export const chatRequestSchema = z.object({
   projectId: z.string(),

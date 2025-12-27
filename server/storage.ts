@@ -11,6 +11,7 @@ import {
   visitorSessions,
   liveChatMessages,
   adminSettings,
+  userModelAssignments,
   type User,
   type UpsertUser,
   type Project,
@@ -31,6 +32,8 @@ import {
   type InsertLiveChatMessage,
   type AdminSettings,
   type InsertAdminSettings,
+  type UserModelAssignment,
+  type InsertUserModelAssignment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -107,6 +110,11 @@ export interface IStorage {
   // Admin settings operations
   getAdminSettings(): Promise<AdminSettings | undefined>;
   upsertAdminSettings(data: Partial<InsertAdminSettings>): Promise<void>;
+
+  // User model assignment operations
+  getUserModelAssignment(userId: string): Promise<UserModelAssignment | undefined>;
+  upsertUserModelAssignment(userId: string, data: Partial<InsertUserModelAssignment>): Promise<UserModelAssignment>;
+  getAllUsers(): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -429,6 +437,28 @@ export class DatabaseStorage implements IStorage {
     } else {
       await db.insert(adminSettings).values(data);
     }
+  }
+
+  // User model assignment operations
+  async getUserModelAssignment(userId: string): Promise<UserModelAssignment | undefined> {
+    const [assignment] = await db.select().from(userModelAssignments).where(eq(userModelAssignments.userId, userId));
+    return assignment;
+  }
+
+  async upsertUserModelAssignment(userId: string, data: any): Promise<UserModelAssignment> {
+    const existing = await this.getUserModelAssignment(userId);
+    if (existing) {
+      await db.update(userModelAssignments).set(data).where(eq(userModelAssignments.userId, userId));
+      const [updated] = await db.select().from(userModelAssignments).where(eq(userModelAssignments.userId, userId));
+      return updated;
+    } else {
+      const [newAssignment] = await db.insert(userModelAssignments).values({ userId, ...data }).returning();
+      return newAssignment;
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.createdAt));
   }
 }
 

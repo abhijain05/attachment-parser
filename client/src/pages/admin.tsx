@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { 
   Select,
   SelectContent,
@@ -16,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertCircle, CheckCircle } from "lucide-react";
+import type { User, UserModelAssignment } from "@shared/schema";
 
 interface AdminSettings {
   embeddingProvider: string;
@@ -162,6 +164,18 @@ export default function AdminPanel() {
                 : "API-based embeddings provide better quality but use external services"}
             </span>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Model Assignment</CardTitle>
+          <CardDescription>
+            Assign AI models to individual users. New users default to Tarang AI.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <UserModelManagement />
         </CardContent>
       </Card>
 
