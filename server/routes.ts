@@ -1362,7 +1362,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   // Create launcher
   const launcher = document.createElement('div');
   launcher.id = 'kabot-launcher';
-  launcher.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>';
+  launcher.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><div id="kabot-notification" style="position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; background: #ff4d4d; border-radius: 50%; border: 2px solid white; display: block;"></div>';
   document.body.appendChild(launcher);
   
   // Create widget container
@@ -1378,6 +1378,12 @@ Do not make up information. Always ground your answers in the provided sources.`
   const messagesArea = document.createElement('div');
   messagesArea.id = 'kabot-messages';
   messagesArea.style.cssText = 'flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;';
+
+  // Add default greeting
+  const greetingMsg = document.createElement('div');
+  greetingMsg.style.cssText = 'align-self: flex-start; background: #f0f0f0; color: #333; padding: 8px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word;';
+  greetingMsg.textContent = 'Hello! How can I help you today?';
+  messagesArea.appendChild(greetingMsg);
   
   // Create input area
   const inputArea = document.createElement('div');
@@ -1397,6 +1403,8 @@ Do not make up information. Always ground your answers in the provided sources.`
   launcher.addEventListener('click', () => {
     container.style.display = 'flex';
     launcher.style.display = 'none';
+    const notification = document.getElementById('kabot-notification');
+    if (notification) notification.style.display = 'none';
   });
 
   closeBtn.addEventListener('click', () => {
