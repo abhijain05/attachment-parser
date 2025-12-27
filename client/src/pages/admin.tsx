@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertCircle, CheckCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import type { User, UserModelAssignment } from "@shared/schema";
 
 interface AdminSettings {
@@ -225,6 +225,7 @@ function UserModelManagement() {
   const [openaiModel, setOpenaiModel] = useState("gpt-4o");
   const [geminiKey, setGeminiKey] = useState("");
   const [geminiModel, setGeminiModel] = useState("gemini-2.0-flash");
+  const [testResults, setTestResults] = useState<{ [key: string]: { valid: boolean; message: string; quotaInfo: string } }>({});
 
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
@@ -259,6 +260,39 @@ function UserModelManagement() {
       toast({
         title: "Error",
         description: "Failed to assign model.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const testMutation = useMutation({
+    mutationFn: async (params: { provider: string; apiKey: string; model?: string; url?: string }) => {
+      return await apiRequest("POST", "/api/admin/test-api-key", params);
+    },
+    onSuccess: (data, params) => {
+      const resultKey = `${params.provider}-${params.apiKey.slice(0, 5)}`;
+      setTestResults((prev) => ({
+        ...prev,
+        [resultKey]: data,
+      }));
+      
+      if (data.valid) {
+        toast({
+          title: "API Key Valid",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "API Key Invalid",
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to test API key.",
         variant: "destructive",
       });
     },
@@ -336,13 +370,25 @@ function UserModelManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tarang-key">Tarang AI API Key</Label>
-                <Input
-                  id="tarang-key"
-                  value={tarangAiApiKey}
-                  onChange={(e) => setTarangAiApiKey(e.target.value)}
-                  placeholder="API key (if required)"
-                  data-testid="input-tarang-key"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="tarang-key"
+                    value={tarangAiApiKey}
+                    onChange={(e) => setTarangAiApiKey(e.target.value)}
+                    placeholder="API key (if required)"
+                    data-testid="input-tarang-key"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => testMutation.mutate({ provider: "tarang_ai", apiKey: tarangAiApiKey, url: tarangAiUrl })}
+                    disabled={!tarangAiApiKey || !tarangAiUrl || testMutation.isPending}
+                    data-testid="button-test-tarang-key"
+                  >
+                    {testMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Test"}
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tarang-model">Tarang AI Model</Label>
@@ -361,13 +407,25 @@ function UserModelManagement() {
             <>
               <div className="space-y-2">
                 <Label htmlFor="openai-key">OpenAI API Key</Label>
-                <Input
-                  id="openai-key"
-                  value={openaiKey}
-                  onChange={(e) => setOpenaiKey(e.target.value)}
-                  placeholder="sk-..."
-                  data-testid="input-openai-key"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="openai-key"
+                    value={openaiKey}
+                    onChange={(e) => setOpenaiKey(e.target.value)}
+                    placeholder="sk-..."
+                    data-testid="input-openai-key"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => testMutation.mutate({ provider: "openai", apiKey: openaiKey })}
+                    disabled={!openaiKey || testMutation.isPending}
+                    data-testid="button-test-openai-key"
+                  >
+                    {testMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Test"}
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="openai-model">OpenAI Model</Label>
@@ -389,13 +447,25 @@ function UserModelManagement() {
             <>
               <div className="space-y-2">
                 <Label htmlFor="gemini-key">Google Gemini API Key</Label>
-                <Input
-                  id="gemini-key"
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  placeholder="API key"
-                  data-testid="input-gemini-key"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="gemini-key"
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    placeholder="API key"
+                    data-testid="input-gemini-key"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => testMutation.mutate({ provider: "gemini", apiKey: geminiKey, model: geminiModel })}
+                    disabled={!geminiKey || testMutation.isPending}
+                    data-testid="button-test-gemini-key"
+                  >
+                    {testMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Test"}
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gemini-model">Gemini Model</Label>

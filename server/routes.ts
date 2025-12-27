@@ -1656,5 +1656,91 @@ Do not make up information. Always ground your answers in the provided sources.`
     }
   });
 
+  // Test API key validity and quota (admin-only)
+  app.post("/api/admin/test-api-key", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { provider, apiKey, model, url } = req.body;
+      
+      if (!provider || !apiKey) {
+        return res.status(400).json({ valid: false, message: "Provider and API key are required" });
+      }
+
+      let isValid = false;
+      let message = "";
+      let quotaInfo = "";
+
+      try {
+        if (provider === "gemini") {
+          // Test Gemini API key
+          const testClient = new GoogleGenerativeAI(apiKey);
+          const testModel = testClient.getGenerativeModel({ model: model || "gemini-2.0-flash" });
+          const result = await testModel.generateContent("test");
+          
+          if (result.response) {
+            isValid = true;
+            message = "API key is valid and working";
+            quotaInfo = "Gemini API is accessible";
+          }
+        } else if (provider === "openai") {
+          // Test OpenAI API key
+          const testClient = new OpenAI({ apiKey });
+          const response = await testClient.models.retrieve("gpt-4o");
+          
+          if (response && response.id) {
+            isValid = true;
+            message = "API key is valid and working";
+            quotaInfo = "OpenAI API is accessible";
+          }
+        } else if (provider === "tarang_ai") {
+          // Test Tarang AI connection
+          if (!url) {
+            return res.status(400).json({ valid: false, message: "Tarang AI URL is required" });
+          }
+          
+          const response = await fetch(`${url}/health`, {
+            method: "GET",
+            headers: {
+              "api-key": apiKey,
+            },
+          });
+          
+          if (response.ok) {
+            isValid = true;
+            message = "Tarang AI connection successful";
+            quotaInfo = "Service is accessible";
+          } else if (response.status === 401) {
+            message = "API key is invalid (401 Unauthorized)";
+          } else {
+            message = `Service returned status ${response.status}`;
+          }
+        }
+      } catch (err: any) {
+        if (err.status === 401 || err.message?.includes("401") || err.message?.includes("unauthorized")) {
+          message = "API key is invalid (401 Unauthorized)";
+        } else if (err.status === 429 || err.message?.includes("429") || err.message?.includes("quota")) {
+          message = "API quota exceeded or rate limit reached";
+        } else if (err.message?.includes("ECONNREFUSED") || err.message?.includes("connection")) {
+          message = `Cannot connect to service: ${err.message}`;
+        } else {
+          message = err.message || "Failed to validate API key";
+        }
+      }
+
+      res.json({
+        valid: isValid,
+        message,
+        quotaInfo,
+      });
+    } catch (error) {
+      console.error("Error testing API key:", error);
+      res.status(500).json({ valid: false, message: "Failed to test API key" });
+    }
+  });
+
   return httpServer;
 }
