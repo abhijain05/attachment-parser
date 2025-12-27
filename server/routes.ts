@@ -1292,6 +1292,100 @@ Do not make up information. Always ground your answers in the provided sources.`
     }
   });
 
+  // Widget script endpoint (public - for embedded chatbot)
+  app.get("/widget.js", (req: Request, res: Response) => {
+    const projectId = req.query.projectId;
+    const apiKey = req.query.apiKey;
+    const sessionId = req.query.sessionId;
+    
+    res.setHeader("Content-Type", "application/javascript");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    
+    const widgetCode = `
+(function() {
+  const projectId = "${projectId}";
+  const apiKey = "${apiKey}";
+  const sessionId = "${sessionId}";
+  
+  // Create widget container
+  const container = document.createElement('div');
+  container.id = 'kabot-widget-container';
+  container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; width: 380px; height: 600px; background: white; border-radius: 12px; box-shadow: 0 5px 40px rgba(0,0,0,0.16); display: flex; flex-direction: column; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
+  
+  // Create header
+  const header = document.createElement('div');
+  header.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px 12px 0 0; font-weight: 600; display: flex; justify-content: space-between; align-items: center;';
+  header.innerHTML = '<span>Chat with us</span><button id="kabot-close" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">×</button>';
+  
+  // Create messages area
+  const messagesArea = document.createElement('div');
+  messagesArea.id = 'kabot-messages';
+  messagesArea.style.cssText = 'flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;';
+  
+  // Create input area
+  const inputArea = document.createElement('div');
+  inputArea.style.cssText = 'padding: 12px; border-top: 1px solid #e0e0e0; display: flex; gap: 8px;';
+  inputArea.innerHTML = '<input id="kabot-input" type="text" placeholder="Type your message..." style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; font-size: 14px;"><button id="kabot-send" style="background: #667eea; color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 500;">Send</button>';
+  
+  container.appendChild(header);
+  container.appendChild(messagesArea);
+  container.appendChild(inputArea);
+  document.body.appendChild(container);
+  
+  // Handle send
+  const input = document.getElementById('kabot-input');
+  const sendBtn = document.getElementById('kabot-send');
+  const closeBtn = document.getElementById('kabot-close');
+  
+  sendBtn.addEventListener('click', async () => {
+    const message = input.value.trim();
+    if (!message) return;
+    
+    // Add user message
+    const userMsg = document.createElement('div');
+    userMsg.style.cssText = 'align-self: flex-end; background: #667eea; color: white; padding: 8px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word;';
+    userMsg.textContent = message;
+    messagesArea.appendChild(userMsg);
+    input.value = '';
+    messagesArea.scrollTop = messagesArea.scrollHeight;
+    
+    // Send to API
+    try {
+      const response = await fetch(window.location.origin.replace(window.location.hostname, '${req.get('host')}') + '/api/widget/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          apiKey,
+          sessionId,
+          message
+        })
+      });
+      
+      const data = await response.json();
+      const botMsg = document.createElement('div');
+      botMsg.style.cssText = 'align-self: flex-start; background: #f0f0f0; color: #333; padding: 8px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word;';
+      botMsg.textContent = data.message || 'Sorry, something went wrong.';
+      messagesArea.appendChild(botMsg);
+      messagesArea.scrollTop = messagesArea.scrollHeight;
+    } catch (e) {
+      console.error('Chat error:', e);
+    }
+  });
+  
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendBtn.click();
+  });
+  
+  closeBtn.addEventListener('click', () => {
+    container.style.display = 'none';
+  });
+})();
+    `;
+    
+    res.send(widgetCode);
+  });
+
   // Visitor tracking endpoint (public - for embedded chatbot)
   app.post("/api/visitor/track", async (req: Request, res: Response) => {
     try {
