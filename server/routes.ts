@@ -651,7 +651,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!project || project.userId !== getUserId(req)) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      const config = await storage.upsertChatbotConfig(req.params.projectId, req.body);
+
+      // Explicitly handle enableLiveChat if it's in the body
+      const configData = { ...req.body };
+      if (typeof configData.enableLiveChat === 'string') {
+        configData.enableLiveChat = configData.enableLiveChat === 'true';
+      }
+
+      const config = await storage.upsertChatbotConfig(req.params.projectId, configData);
       res.json(config);
     } catch (error) {
       console.error("Error saving chatbot config:", error);

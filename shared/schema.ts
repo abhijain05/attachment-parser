@@ -204,6 +204,7 @@ export const chatbotConfigs = pgTable("chatbot_configs", {
   tarangAiUrl: text("tarang_ai_url"), // Tarang AI endpoint URL
   tarangAiApiKey: text("tarang_ai_api_key"), // Tarang AI API key
   tarangAiModel: varchar("tarang_ai_model", { length: 100 }), // Tarang AI model name (e.g., llama3.2:3b)
+  botLogoUrl: text("bot_logo_url"), // URL for chatbot logo
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

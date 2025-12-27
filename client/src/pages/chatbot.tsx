@@ -38,8 +38,10 @@ export default function ChatbotBuilder() {
     position: "bottom-right",
     welcomeMessage: "Hello! How can I help you today?",
     botName: "AI Assistant",
+    botLogoUrl: "",
     tone: "professional",
     showSources: true,
+    enableLiveChat: false,
   });
   const [previewMessage, setPreviewMessage] = useState("");
   const [previewMessages, setPreviewMessages] = useState<{ role: string; content: string }[]>([]);
@@ -63,8 +65,10 @@ export default function ChatbotBuilder() {
         position: savedConfig.position || "bottom-right",
         welcomeMessage: savedConfig.welcomeMessage || "Hello! How can I help you today?",
         botName: savedConfig.botName || "AI Assistant",
+        botLogoUrl: savedConfig.botLogoUrl || "",
         tone: savedConfig.tone || "professional",
         showSources: savedConfig.showSources ?? true,
+        enableLiveChat: savedConfig.enableLiveChat ?? false,
       });
     }
   }, [savedConfig]);
@@ -290,6 +294,17 @@ export default function ChatbotBuilder() {
                     </div>
 
                     <div className="space-y-2">
+                      <Label htmlFor="botLogoUrl">Bot Logo URL</Label>
+                      <Input
+                        id="botLogoUrl"
+                        value={config.botLogoUrl || ""}
+                        onChange={(e) => setConfig({ ...config, botLogoUrl: e.target.value })}
+                        placeholder="https://example.com/logo.png"
+                        data-testid="input-bot-logo"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="welcomeMessage">Welcome Message</Label>
                       <Textarea
                         id="welcomeMessage"
@@ -383,7 +398,11 @@ export default function ChatbotBuilder() {
                           <div className="flex items-center gap-3">
                             <div className="relative">
                               <div className="h-10 w-10 rounded-full border-2 border-white/20 overflow-hidden bg-white/10 flex items-center justify-center">
-                                <MessageCircle className="h-6 w-6 text-white" />
+                                {config.botLogoUrl ? (
+                                  <img src={config.botLogoUrl} alt="Bot Logo" className="h-full w-full object-cover" />
+                                ) : (
+                                  <MessageCircle className="h-6 w-6 text-white" />
+                                )}
                               </div>
                               <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
                             </div>
