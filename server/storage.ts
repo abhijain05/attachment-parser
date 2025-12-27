@@ -391,7 +391,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateVisitorSession(id: string, updates: Partial<VisitorSession>): Promise<void> {
-    await db.update(visitorSessions).set({ ...updates, updatedAt: new Date() }).where(eq(visitorSessions.id, id));
+    const data = { ...updates, updatedAt: new Date() };
+    // Remove id from updates if present to prevent update errors
+    if ('id' in data) delete (data as any).id;
+    await db.update(visitorSessions).set(data).where(eq(visitorSessions.id, id));
   }
 
   // Live chat operations

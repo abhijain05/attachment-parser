@@ -27,10 +27,15 @@ export default function VisitorsPage({ projectId: propsProjectId }: VisitorsPage
   });
 
   // Fetch visitors
-  const { data: visitors = [], isLoading } = useQuery({
+  const { data: visitors = [], isLoading } = useQuery<VisitorSession[]>({
     queryKey: ["/api/visitors", selectedProject],
-    queryFn: () => apiRequest(`/api/visitors?projectId=${selectedProject}`, { method: "GET" }),
+    queryFn: async () => {
+      const res = await fetch(`/api/visitors?projectId=${selectedProject}`);
+      if (!res.ok) throw new Error("Failed to fetch visitors");
+      return res.json();
+    },
     enabled: !!selectedProject,
+    refetchInterval: 5000, // Poll every 5s for live updates
   });
 
   // Fetch live chat messages
