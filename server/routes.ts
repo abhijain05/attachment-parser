@@ -1542,5 +1542,63 @@ Do not make up information. Always ground your answers in the provided sources.`
     }
   });
 
+  // Get all users for admin (admin-only)
+  app.get("/api/admin/users", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Get user's AI model assignment (admin-only)
+  app.get("/api/admin/user-models/:userId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const { userId } = req.params;
+      const assignment = await storage.getUserModelAssignment(userId);
+      res.json(assignment || null);
+    } catch (error) {
+      console.error("Error fetching user model assignment:", error);
+      res.status(500).json({ message: "Failed to fetch user model assignment" });
+    }
+  });
+
+  // Assign AI model to user (admin-only)
+  app.put("/api/admin/user-models/:userId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const { userId } = req.params;
+      const { aiProvider, tarangAiUrl, tarangAiApiKey, tarangAiModel, openaiApiKey, openaiModel, geminiApiKey, geminiModel } = req.body;
+      
+      const assignment = await storage.upsertUserModelAssignment(userId, {
+        aiProvider,
+        tarangAiUrl,
+        tarangAiApiKey,
+        tarangAiModel,
+        openaiApiKey,
+        openaiModel,
+        geminiApiKey,
+        geminiModel,
+      });
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error updating user model assignment:", error);
+      res.status(500).json({ message: "Failed to update user model assignment" });
+    }
+  });
+
   return httpServer;
 }

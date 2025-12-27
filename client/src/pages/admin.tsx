@@ -213,3 +213,214 @@ export default function AdminPanel() {
     </div>
   );
 }
+
+function UserModelManagement() {
+  const { toast } = useToast();
+  const [selectedUser, setSelectedUser] = useState<string>("");
+  const [aiProvider, setAiProvider] = useState("tarang_ai");
+  const [tarangAiUrl, setTarangAiUrl] = useState("");
+  const [tarangAiApiKey, setTarangAiApiKey] = useState("");
+  const [tarangAiModel, setTarangAiModel] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [openaiModel, setOpenaiModel] = useState("gpt-4o");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [geminiModel, setGeminiModel] = useState("gemini-2.0-flash");
+
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ["/api/admin/users"],
+  });
+
+  const { data: assignment, isLoading: assignmentLoading } = useQuery<UserModelAssignment | null>({
+    queryKey: ["/api/admin/user-models", selectedUser],
+    enabled: !!selectedUser,
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("PUT", `/api/admin/user-models/${selectedUser}`, {
+        aiProvider,
+        tarangAiUrl,
+        tarangAiApiKey,
+        tarangAiModel,
+        openaiApiKey: openaiKey || undefined,
+        openaiModel,
+        geminiApiKey: geminiKey || undefined,
+        geminiModel,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/user-models", selectedUser] });
+      toast({
+        title: "Model assigned",
+        description: "User model assignment updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to assign model.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleUserChange = (userId: string) => {
+    setSelectedUser(userId);
+    setAiProvider("tarang_ai");
+    setTarangAiUrl("");
+    setTarangAiApiKey("");
+    setTarangAiModel("");
+    setOpenaiKey("");
+    setOpenaiModel("gpt-4o");
+    setGeminiKey("");
+    setGeminiModel("gemini-2.0-flash");
+  };
+
+  if (assignment && !tarangAiUrl && !openaiKey && !geminiKey) {
+    if (assignment.tarangAiUrl) setTarangAiUrl(assignment.tarangAiUrl);
+    if (assignment.tarangAiApiKey) setTarangAiApiKey(assignment.tarangAiApiKey);
+    if (assignment.tarangAiModel) setTarangAiModel(assignment.tarangAiModel);
+    if (assignment.openaiApiKey) setOpenaiKey(assignment.openaiApiKey);
+    if (assignment.openaiModel) setOpenaiModel(assignment.openaiModel);
+    if (assignment.geminiApiKey) setGeminiKey(assignment.geminiApiKey);
+    if (assignment.geminiModel) setGeminiModel(assignment.geminiModel);
+    if (assignment.aiProvider) setAiProvider(assignment.aiProvider);
+  }
+
+  if (usersLoading) {
+    return <Skeleton className="h-32" />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Select value={selectedUser} onValueChange={handleUserChange}>
+        <SelectTrigger data-testid="select-admin-user">
+          <SelectValue placeholder="Select a user to assign model" />
+        </SelectTrigger>
+        <SelectContent>
+          {users?.map((user) => (
+            <SelectItem key={user.id} value={user.id}>
+              {user.email}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {selectedUser && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="user-ai-provider">AI Provider</Label>
+            <Select value={aiProvider} onValueChange={setAiProvider}>
+              <SelectTrigger id="user-ai-provider" data-testid="select-user-ai-provider">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tarang_ai">Tarang AI (Default)</SelectItem>
+                <SelectItem value="openai">OpenAI</SelectItem>
+                <SelectItem value="gemini">Google Gemini</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {aiProvider === "tarang_ai" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="tarang-url">Tarang AI URL</Label>
+                <Input
+                  id="tarang-url"
+                  value={tarangAiUrl}
+                  onChange={(e) => setTarangAiUrl(e.target.value)}
+                  placeholder="http://localhost:11434"
+                  data-testid="input-tarang-url"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tarang-key">Tarang AI API Key</Label>
+                <Input
+                  id="tarang-key"
+                  value={tarangAiApiKey}
+                  onChange={(e) => setTarangAiApiKey(e.target.value)}
+                  placeholder="API key (if required)"
+                  data-testid="input-tarang-key"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tarang-model">Tarang AI Model</Label>
+                <Input
+                  id="tarang-model"
+                  value={tarangAiModel}
+                  onChange={(e) => setTarangAiModel(e.target.value)}
+                  placeholder="e.g., llama3.2:3b"
+                  data-testid="input-tarang-model"
+                />
+              </div>
+            </>
+          )}
+
+          {aiProvider === "openai" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="openai-key">OpenAI API Key</Label>
+                <Input
+                  id="openai-key"
+                  value={openaiKey}
+                  onChange={(e) => setOpenaiKey(e.target.value)}
+                  placeholder="sk-..."
+                  data-testid="input-openai-key"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="openai-model">OpenAI Model</Label>
+                <Select value={openaiModel} onValueChange={setOpenaiModel}>
+                  <SelectTrigger id="openai-model" data-testid="select-openai-model">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                    <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                    <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
+          {aiProvider === "gemini" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="gemini-key">Google Gemini API Key</Label>
+                <Input
+                  id="gemini-key"
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  placeholder="API key"
+                  data-testid="input-gemini-key"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gemini-model">Gemini Model</Label>
+                <Select value={geminiModel} onValueChange={setGeminiModel}>
+                  <SelectTrigger id="gemini-model" data-testid="select-gemini-model">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                    <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
+          <Button
+            onClick={() => assignMutation.mutate()}
+            disabled={assignmentLoading || assignMutation.isPending}
+            data-testid="button-assign-user-model"
+          >
+            {assignMutation.isPending ? "Assigning..." : "Assign Model"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
