@@ -738,23 +738,32 @@ Respond with ONLY "yes" or "no".
         attachments: attachments,
       });
 
-      // Get chatbot config with user's API keys
-      const chatbotConfig = await storage.getChatbotConfig(projectId);
-      const aiProvider = chatbotConfig?.aiProvider || "openai";
-      const embeddingProvider = (chatbotConfig?.aiProvider || "openai") as "openai" | "gemini" | "tarang_ai";
-      const userOpenaiKey = chatbotConfig?.openaiApiKey;
-      const userGeminiKey = chatbotConfig?.geminiApiKey;
+      // Use admin-assigned models for the user if available
+      const userId = getUserId(req);
+      const modelAssignment = await storage.getUserModelAssignment(userId);
+      const aiProvider = modelAssignment?.aiProvider || "tarang_ai";
+      
+      const aiConfig = {
+        tarangAiUrl: modelAssignment?.tarangAiUrl,
+        tarangAiApiKey: modelAssignment?.tarangAiApiKey,
+        tarangAiModel: modelAssignment?.tarangAiModel,
+        openaiApiKey: modelAssignment?.openaiApiKey,
+        geminiApiKey: modelAssignment?.geminiApiKey,
+      };
 
       // Use user's API key or fallback to environment variables
       let userOpenai: OpenAI | null = null;
       let userGemini: GoogleGenerativeAI | null = null;
 
-      if (userOpenaiKey) {
-        userOpenai = new OpenAI({ apiKey: userOpenaiKey });
+      if (aiConfig.openaiApiKey) {
+        userOpenai = new OpenAI({ apiKey: aiConfig.openaiApiKey });
       }
-      if (userGeminiKey) {
-        userGemini = new GoogleGenerativeAI(userGeminiKey);
+      if (aiConfig.geminiApiKey) {
+        userGemini = new GoogleGenerativeAI(aiConfig.geminiApiKey) as any;
       }
+
+      // Fallback embedding provider if not specifically configured
+      const embeddingProvider = (aiProvider || "openai") as "openai" | "gemini" | "tarang_ai";
 
       // Get previous chat history for context
       let chatHistory = await storage.getChatMessages(session.id);
@@ -767,9 +776,9 @@ Respond with ONLY "yes" or "no".
         const summary = await summarizeChatHistory(
           chatHistory,
           aiProvider,
-          chatbotConfig?.tarangAiUrl,
-          chatbotConfig?.tarangAiApiKey,
-          chatbotConfig?.tarangAiModel,
+          aiConfig.tarangAiUrl,
+          aiConfig.tarangAiApiKey,
+          aiConfig.tarangAiModel,
           userOpenai,
           userGemini
         );
@@ -789,9 +798,6 @@ Respond with ONLY "yes" or "no".
         historyContext = chatHistory.slice(-6).map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n');
       }
 
-      // Get userId for later
-      const userId = getUserId(req);
-      
       let responseText = "";
       let tokensUsed = 0;
       const sources: { documentId: string; documentName: string; snippet: string }[] = [];
@@ -802,9 +808,9 @@ Respond with ONLY "yes" or "no".
       const needsKnowledge = await detectNeedsKnowledgeBase(
         message,
         aiProvider,
-        chatbotConfig?.tarangAiUrl,
-        chatbotConfig?.tarangAiApiKey,
-        chatbotConfig?.tarangAiModel,
+        aiConfig.tarangAiUrl,
+        aiConfig.tarangAiApiKey,
+        aiConfig.tarangAiModel,
         userOpenai,
         userGemini
       );
@@ -817,9 +823,9 @@ Respond with ONLY "yes" or "no".
           const embeddingConfig = {
             openaiClient: userOpenai || openai || undefined,
             geminiClient: userGemini || gemini || undefined,
-            tarangAiUrl: chatbotConfig?.tarangAiUrl,
-            tarangAiApiKey: chatbotConfig?.tarangAiApiKey,
-            tarangAiModel: chatbotConfig?.tarangAiModel,
+            tarangAiUrl: aiConfig.tarangAiUrl,
+            tarangAiApiKey: aiConfig.tarangAiApiKey,
+            tarangAiModel: aiConfig.tarangAiModel,
           };
           queryEmbedding = await getEmbedding(embeddingProvider, message, embeddingConfig);
         } catch (err) {
@@ -855,7 +861,9 @@ Respond with ONLY "yes" or "no".
         }
         sources.push(...uniqueSources.values());
 
-        const tone = chatbotConfig?.tone || "professional";
+      // Get chatbot config for tone and other behavior settings
+      const chatbotConfig = await storage.getChatbotConfig(projectId);
+      const tone = chatbotConfig?.tone || "professional";
         
         const systemPrompt = `You are a helpful AI assistant. Answer questions ONLY based on the provided context. 
 If the answer is not in the context, say "I don't have information about that in my knowledge base."
@@ -864,15 +872,15 @@ Do not make up information. Always ground your answers in the provided sources.`
 
         const fullContext = `${systemPrompt}\n\nPrevious context:\n${historyContext || "No previous messages"}\n\nDocumentation:\n${context}\n\nQuestion: ${message}`;
 
-        if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
-          console.log(`[Chat] Sending knowledge base query to Tarang AI (model: ${chatbotConfig?.tarangAiModel})`);
+        if (aiProvider === "tarang_ai" && aiConfig.tarangAiApiKey && aiConfig.tarangAiModel) {
+          console.log(`[Chat] Sending knowledge base query to Tarang AI (model: ${aiConfig.tarangAiModel})`);
           try {
-            const tarangUrl = chatbotConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
+            const tarangUrl = aiConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
             responseText = await getTarangAIChatResponse(
               fullContext,
               tarangUrl,
-              chatbotConfig.tarangAiApiKey,
-              chatbotConfig.tarangAiModel,
+              aiConfig.tarangAiApiKey,
+              aiConfig.tarangAiModel,
               session.id
             );
             if (!responseText || responseText.length < 2) {
@@ -933,15 +941,15 @@ Do not make up information. Always ground your answers in the provided sources.`
         // No relevant knowledge base chunks found - treat as general chat/casual message
         const generalChatPrompt = `Respond naturally and briefly to this message. Keep it friendly and concise:\n\nMessage: "${message}"\n\nPrevious context:\n${historyContext || "No previous messages"}`;
 
-        if (aiProvider === "tarang_ai" && chatbotConfig?.tarangAiApiKey && chatbotConfig?.tarangAiModel) {
-          console.log(`[Chat] Sending general chat message to Tarang AI (model: ${chatbotConfig?.tarangAiModel})`);
+        if (aiProvider === "tarang_ai" && aiConfig.tarangAiApiKey && aiConfig.tarangAiModel) {
+          console.log(`[Chat] Sending general chat message to Tarang AI (model: ${aiConfig.tarangAiModel})`);
           try {
-            const tarangUrl = chatbotConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
+            const tarangUrl = aiConfig.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
             responseText = await getTarangAIChatResponse(
               generalChatPrompt,
               tarangUrl,
-              chatbotConfig.tarangAiApiKey,
-              chatbotConfig.tarangAiModel,
+              aiConfig.tarangAiApiKey,
+              aiConfig.tarangAiModel,
               session.id
             );
             if (!responseText || responseText.length < 2) {
