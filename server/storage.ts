@@ -278,7 +278,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(chatSessions).where(eq(chatSessions.id, id));
   }
 
-  async addChatMessage(message: { sessionId: string; role: string; content: string; sources?: any; tokensUsed?: number }): Promise<ChatMessage> {
+  async addChatMessage(message: { sessionId: string; role: string; content: string; sources?: any; tokensUsed?: number; attachments?: any }): Promise<ChatMessage> {
     const [msg] = await db.insert(chatMessages).values(message).returning();
     return msg;
   }

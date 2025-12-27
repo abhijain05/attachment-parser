@@ -494,9 +494,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const embeddingConfig = {
             openaiClient: modelAssignment?.openaiApiKey ? new OpenAI({ apiKey: modelAssignment.openaiApiKey }) : undefined,
             geminiClient: modelAssignment?.geminiApiKey ? new GoogleGenerativeAI(modelAssignment.geminiApiKey) : undefined,
-            tarangAiUrl: modelAssignment?.tarangAiUrl,
-            tarangAiApiKey: modelAssignment?.tarangAiApiKey,
-            tarangAiModel: modelAssignment?.tarangAiModel,
+            tarangAiUrl: modelAssignment?.tarangAiUrl || undefined,
+            tarangAiApiKey: modelAssignment?.tarangAiApiKey || undefined,
+            tarangAiModel: modelAssignment?.tarangAiModel || undefined,
           };
           
           // Generate embeddings and store in document_embeddings table
@@ -1677,14 +1677,24 @@ Do not make up information. Always ground your answers in the provided sources.`
       try {
         if (provider === "gemini") {
           // Test Gemini API key
+          console.log(`[Admin] Testing Gemini API key for model: ${model || "gemini-2.0-flash"}`);
           const testClient = new GoogleGenerativeAI(apiKey);
+          // Use a simpler model for testing or the one requested
           const testModel = testClient.getGenerativeModel({ model: model || "gemini-2.0-flash" });
-          const result = await testModel.generateContent("test");
           
-          if (result.response) {
-            isValid = true;
-            message = "API key is valid and working";
-            quotaInfo = "Gemini API is accessible";
+          try {
+            // Use embedContent for a more lightweight test if generateContent is failing due to quota
+            const result = await testModel.generateContent("ping");
+            
+            if (result.response) {
+              isValid = true;
+              message = "API key is valid and working";
+              quotaInfo = "Gemini API is accessible";
+            }
+          } catch (geminiErr: any) {
+            console.error("[Admin] Gemini test error details:", geminiErr);
+            // Re-throw to be caught by the outer catch block which handles 429s etc.
+            throw geminiErr;
           }
         } else if (provider === "openai") {
           // Test OpenAI API key

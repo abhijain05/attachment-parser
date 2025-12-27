@@ -114,7 +114,7 @@ export const documents = pgTable("documents", {
   name: text("name").notNull(),
   type: varchar("type", { length: 50 }).notNull(), // pdf, txt, md, url
   content: text("content"), // raw text content
-  metadata: jsonb("metadata").$type<{ size?: number; url?: string; mimeType?: string }>(),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
   status: varchar("status", { length: 20 }).default("processing"), // processing, ready, error
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
