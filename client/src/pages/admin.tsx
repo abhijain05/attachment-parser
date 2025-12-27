@@ -373,6 +373,7 @@ function UserModelManagement() {
                 <div className="flex gap-2">
                   <Input
                     id="tarang-key"
+                    type="password"
                     value={tarangAiApiKey}
                     onChange={(e) => setTarangAiApiKey(e.target.value)}
                     placeholder="API key (if required)"
@@ -410,6 +411,7 @@ function UserModelManagement() {
                 <div className="flex gap-2">
                   <Input
                     id="openai-key"
+                    type="password"
                     value={openaiKey}
                     onChange={(e) => setOpenaiKey(e.target.value)}
                     placeholder="sk-..."
@@ -450,6 +452,7 @@ function UserModelManagement() {
                 <div className="flex gap-2">
                   <Input
                     id="gemini-key"
+                    type="password"
                     value={geminiKey}
                     onChange={(e) => setGeminiKey(e.target.value)}
                     placeholder="API key"

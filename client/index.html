@@ -33,41 +33,31 @@
     <script type="module" src="/src/main.tsx"></script>
     <!-- Knowledge AI Chatbot Widget -->
     <script>
-      (function () {
+      (function() {
         // Track visitor session
-        var sessionId =
-          localStorage.getItem("kabot-session") ||
-          "visitor-" +
-            Date.now() +
-            "-" +
-            Math.random().toString(36).substr(2, 9);
-        localStorage.setItem("kabot-session", sessionId);
+        var sessionId = localStorage.getItem('kabot-session') || 'visitor-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('kabot-session', sessionId);
 
         // Send visitor tracking
-        fetch(
-          "https://2c22b206-1255-4b05-94ff-5be31b3500d8-00-2c4s8ahheoe7z.pike.replit.dev/api/visitor/track",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              projectId: "ee1e1212-af34-4b77-8fe4-b3bf38b85ffa",
-              apiKey: "445f6036-a85d-4587-82fc-fe2b12faf008",
-              sessionId: sessionId,
-              pageUrl: window.location.href,
-              referrer: document.referrer,
-            }),
-          },
-        ).catch((e) => console.log("Visitor tracking:", e));
+        fetch('https://46745194-99fb-434b-8fba-ebc318aac623-00-uqhuo2wl8ute.pike.replit.dev/api/visitor/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: 'ee1e1212-af34-4b77-8fe4-b3bf38b85ffa',
+            apiKey: '445f6036-a85d-4587-82fc-fe2b12faf008',
+            sessionId: sessionId,
+            pageUrl: window.location.href,
+            referrer: document.referrer
+          })
+        }).catch(e => console.log('Visitor tracking:', e));
 
-        var script = document.createElement("script");
-        script.src =
-          "https://2c22b206-1255-4b05-94ff-5be31b3500d8-00-2c4s8ahheoe7z.pike.replit.dev/widget.js";
+        var script = document.createElement('script');
+        script.src = 'https://46745194-99fb-434b-8fba-ebc318aac623-00-uqhuo2wl8ute.pike.replit.dev/widget.js';
         script.async = true;
-        script.dataset.projectId = "ee1e1212-af34-4b77-8fe4-b3bf38b85ffa";
-        script.dataset.apiKey = "445f6036-a85d-4587-82fc-fe2b12faf008";
+        script.dataset.projectId = 'ee1e1212-af34-4b77-8fe4-b3bf38b85ffa';
+        script.dataset.apiKey = '445f6036-a85d-4587-82fc-fe2b12faf008';
         script.dataset.sessionId = sessionId;
         document.head.appendChild(script);
       })();
     </script>
-  </body>
 </html>
