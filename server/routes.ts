@@ -1418,7 +1418,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     
     // Send to API
     try {
-      const response = await fetch(window.location.origin + '/api/widget/chat', {
+      const response = await fetch('/api/widget/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

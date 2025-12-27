@@ -39,7 +39,7 @@
         localStorage.setItem('kabot-session', sessionId);
 
         // Send visitor tracking
-        fetch('https://46745194-99fb-434b-8fba-ebc318aac623-00-uqhuo2wl8ute.pike.replit.dev/api/visitor/track', {
+        fetch('/api/visitor/track', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -52,11 +52,8 @@
         }).catch(e => console.log('Visitor tracking:', e));
 
         var script = document.createElement('script');
-        script.src = 'https://46745194-99fb-434b-8fba-ebc318aac623-00-uqhuo2wl8ute.pike.replit.dev/widget.js';
+        script.src = '/widget.js?projectId=ee1e1212-af34-4b77-8fe4-b3bf38b85ffa&apiKey=445f6036-a85d-4587-82fc-fe2b12faf008&sessionId=' + sessionId;
         script.async = true;
-        script.dataset.projectId = 'ee1e1212-af34-4b77-8fe4-b3bf38b85ffa';
-        script.dataset.apiKey = '445f6036-a85d-4587-82fc-fe2b12faf008';
-        script.dataset.sessionId = sessionId;
         document.head.appendChild(script);
       })();
     </script>
