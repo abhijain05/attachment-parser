@@ -1307,10 +1307,60 @@ Do not make up information. Always ground your answers in the provided sources.`
   const apiKey = "${apiKey}";
   const sessionId = "${sessionId}";
   
+  // Create styles
+  const style = document.createElement('style');
+  style.textContent = \`
+    #kabot-widget-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 380px;
+      height: 600px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 5px 40px rgba(0,0,0,0.16);
+      display: none;
+      flex-direction: column;
+      z-index: 9999;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+    }
+    #kabot-launcher {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: transform 0.2s ease;
+    }
+    #kabot-launcher:hover {
+      transform: scale(1.05);
+    }
+    #kabot-launcher svg {
+      width: 30px;
+      height: 30px;
+      fill: white;
+    }
+  \`;
+  document.head.appendChild(style);
+
+  // Create launcher
+  const launcher = document.createElement('div');
+  launcher.id = 'kabot-launcher';
+  launcher.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>';
+  document.body.appendChild(launcher);
+  
   // Create widget container
   const container = document.createElement('div');
   container.id = 'kabot-widget-container';
-  container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; width: 380px; height: 600px; background: white; border-radius: 12px; box-shadow: 0 5px 40px rgba(0,0,0,0.16); display: flex; flex-direction: column; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
   
   // Create header
   const header = document.createElement('div');
@@ -1332,10 +1382,20 @@ Do not make up information. Always ground your answers in the provided sources.`
   container.appendChild(inputArea);
   document.body.appendChild(container);
   
-  // Handle send
+  // Handlers
   const input = document.getElementById('kabot-input');
   const sendBtn = document.getElementById('kabot-send');
   const closeBtn = document.getElementById('kabot-close');
+  
+  launcher.addEventListener('click', () => {
+    container.style.display = 'flex';
+    launcher.style.display = 'none';
+  });
+
+  closeBtn.addEventListener('click', () => {
+    container.style.display = 'none';
+    launcher.style.display = 'flex';
+  });
   
   sendBtn.addEventListener('click', async () => {
     const message = input.value.trim();
@@ -1351,7 +1411,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     
     // Send to API
     try {
-      const response = await fetch(window.location.origin.replace(window.location.hostname, '${req.get('host')}') + '/api/widget/chat', {
+      const response = await fetch(window.location.origin + '/api/widget/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1375,10 +1435,6 @@ Do not make up information. Always ground your answers in the provided sources.`
   
   input.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendBtn.click();
-  });
-  
-  closeBtn.addEventListener('click', () => {
-    container.style.display = 'none';
   });
 })();
     `;
