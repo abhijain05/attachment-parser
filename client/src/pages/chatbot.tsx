@@ -199,12 +199,12 @@ export default function ChatbotBuilder() {
                           <input
                             type="color"
                             id="primaryColor"
-                            value={config.primaryColor}
+                            value={config.primaryColor || "#3B82F6"}
                             onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
                             className="h-10 w-14 rounded-md border cursor-pointer"
                           />
                           <Input
-                            value={config.primaryColor}
+                            value={config.primaryColor || ""}
                             onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
                             className="font-mono"
                             data-testid="input-primary-color"
@@ -217,12 +217,12 @@ export default function ChatbotBuilder() {
                           <input
                             type="color"
                             id="backgroundColor"
-                            value={config.backgroundColor}
+                            value={config.backgroundColor || "#FFFFFF"}
                             onChange={(e) => setConfig({ ...config, backgroundColor: e.target.value })}
                             className="h-10 w-14 rounded-md border cursor-pointer"
                           />
                           <Input
-                            value={config.backgroundColor}
+                            value={config.backgroundColor || ""}
                             onChange={(e) => setConfig({ ...config, backgroundColor: e.target.value })}
                             className="font-mono"
                             data-testid="input-background-color"
@@ -237,12 +237,12 @@ export default function ChatbotBuilder() {
                         <input
                           type="color"
                           id="textColor"
-                          value={config.textColor}
+                          value={config.textColor || "#1F2937"}
                           onChange={(e) => setConfig({ ...config, textColor: e.target.value })}
                           className="h-10 w-14 rounded-md border cursor-pointer"
                         />
                         <Input
-                          value={config.textColor}
+                          value={config.textColor || ""}
                           onChange={(e) => setConfig({ ...config, textColor: e.target.value })}
                           className="font-mono"
                           data-testid="input-text-color"
@@ -253,7 +253,7 @@ export default function ChatbotBuilder() {
                     <div className="space-y-2">
                       <Label>Widget Position</Label>
                       <Select
-                        value={config.position}
+                        value={config.position || "bottom-right"}
                         onValueChange={(v) => setConfig({ ...config, position: v })}
                       >
                         <SelectTrigger data-testid="select-position">
@@ -282,7 +282,7 @@ export default function ChatbotBuilder() {
                       <Label htmlFor="botName">Bot Name</Label>
                       <Input
                         id="botName"
-                        value={config.botName}
+                        value={config.botName || ""}
                         onChange={(e) => setConfig({ ...config, botName: e.target.value })}
                         placeholder="AI Assistant"
                         data-testid="input-bot-name"
@@ -293,7 +293,7 @@ export default function ChatbotBuilder() {
                       <Label htmlFor="welcomeMessage">Welcome Message</Label>
                       <Textarea
                         id="welcomeMessage"
-                        value={config.welcomeMessage}
+                        value={config.welcomeMessage || ""}
                         onChange={(e) => setConfig({ ...config, welcomeMessage: e.target.value })}
                         placeholder="Hello! How can I help you today?"
                         rows={3}
@@ -304,7 +304,7 @@ export default function ChatbotBuilder() {
                     <div className="space-y-2">
                       <Label>Response Tone</Label>
                       <Select
-                        value={config.tone}
+                        value={config.tone || "professional"}
                         onValueChange={(v) => setConfig({ ...config, tone: v })}
                       >
                         <SelectTrigger data-testid="select-tone">
@@ -326,7 +326,7 @@ export default function ChatbotBuilder() {
                         </p>
                       </div>
                       <Switch
-                        checked={config.showSources}
+                        checked={config.showSources || false}
                         onCheckedChange={(v) => setConfig({ ...config, showSources: v })}
                         data-testid="switch-show-sources"
                       />
@@ -374,94 +374,119 @@ export default function ChatbotBuilder() {
                   >
                     <div
                       className="w-72 rounded-lg shadow-lg overflow-hidden"
-                      style={{ backgroundColor: config.backgroundColor }}
+                      style={{ backgroundColor: config.backgroundColor || "#FFFFFF" }}
                     >
-                      <div
-                        className="px-4 py-3 flex items-center justify-between"
-                        style={{ backgroundColor: config.primaryColor }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <MessageCircle className="h-5 w-5 text-white" />
-                          <span className="text-white font-medium text-sm">
-                            {config.botName}
-                          </span>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6 text-white/80"
-                          onClick={() => setIsPreviewOpen(false)}
-                          data-testid="button-close-preview"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="h-48 overflow-y-auto p-3 space-y-3">
                         <div
-                          className="text-sm p-2 rounded-lg max-w-[85%]"
-                          style={{
-                            backgroundColor: `${config.primaryColor}20`,
-                            color: config.textColor,
-                          }}
+                          className="px-4 py-4 flex items-center justify-between"
+                          style={{ backgroundColor: config.primaryColor || "#3B82F6" }}
                         >
-                          {config.welcomeMessage}
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              <div className="h-10 w-10 rounded-full border-2 border-white/20 overflow-hidden bg-white/10 flex items-center justify-center">
+                                <MessageCircle className="h-6 w-6 text-white" />
+                              </div>
+                              <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-white font-semibold text-sm leading-tight">
+                                {config.botName}
+                              </span>
+                              <span className="text-white/80 text-[10px]">
+                                We're online
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-white/80 hover:bg-white/10"
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-white/80 hover:bg-white/10"
+                              onClick={() => setIsPreviewOpen(false)}
+                              data-testid="button-close-preview"
+                            >
+                              <X className="h-5 w-5" />
+                            </Button>
+                          </div>
                         </div>
-                        {previewMessages.map((msg, i) => (
+
+                        <div className="h-64 overflow-y-auto p-4 space-y-4 bg-muted/5">
                           <div
-                            key={i}
-                            className={`text-sm p-2 rounded-lg max-w-[85%] ${
-                              msg.role === "user" ? "ml-auto bg-muted" : ""
-                            }`}
+                            className="text-sm p-3 rounded-2xl rounded-tl-none shadow-sm max-w-[85%]"
                             style={{
-                              backgroundColor: msg.role === "assistant" ? `${config.primaryColor}20` : undefined,
-                              color: config.textColor,
+                              backgroundColor: "#FFFFFF",
+                              color: config.textColor || "#1F2937",
+                              border: `1px solid ${config.primaryColor || "#3B82F6"}20`
                             }}
                           >
-                            {msg.content}
+                            {config.welcomeMessage}
                           </div>
-                        ))}
-                      </div>
+                          {previewMessages.map((msg, i) => (
+                            <div
+                              key={i}
+                              className={`text-sm p-3 shadow-sm max-w-[85%] ${
+                                msg.role === "user" 
+                                  ? "ml-auto rounded-2xl rounded-tr-none bg-primary text-primary-foreground" 
+                                  : "rounded-2xl rounded-tl-none"
+                              }`}
+                              style={{
+                                backgroundColor: msg.role === "assistant" ? "#FFFFFF" : undefined,
+                                color: msg.role === "assistant" ? (config.textColor || "#1F2937") : undefined,
+                                border: msg.role === "assistant" ? `1px solid ${config.primaryColor || "#3B82F6"}20` : undefined,
+                              }}
+                            >
+                              {msg.content}
+                            </div>
+                          ))}
+                        </div>
 
-                      <div className="p-3 border-t" style={{ borderColor: `${config.textColor}20` }}>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Type a message..."
-                            value={previewMessage}
-                            onChange={(e) => setPreviewMessage(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handlePreviewSend()}
-                            className="text-sm"
-                            style={{ color: config.textColor }}
-                          />
-                          <Button
-                            size="icon"
-                            onClick={handlePreviewSend}
-                            style={{ backgroundColor: config.primaryColor }}
-                          >
-                            <Send className="h-4 w-4" />
-                          </Button>
+                        <div className="p-4 border-t bg-white" style={{ borderColor: `${config.textColor || "#1F2937"}10` }}>
+                          <div className="flex items-center gap-2 bg-muted/30 rounded-full px-4 py-1 border border-muted-foreground/10 focus-within:border-primary/30 transition-colors">
+                            <Input
+                              placeholder="Type a message..."
+                              value={previewMessage}
+                              onChange={(e) => setPreviewMessage(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && handlePreviewSend()}
+                              className="text-sm border-0 bg-transparent focus-visible:ring-0 px-0 h-10"
+                              style={{ color: config.textColor || "#1F2937" }}
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 rounded-full hover:bg-primary/10"
+                              onClick={handlePreviewSend}
+                              style={{ color: config.primaryColor || "#3B82F6" }}
+                            >
+                              <Send className="h-4 w-4 fill-current" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <Button
-                      size="icon"
-                      className={`absolute -bottom-2 ${
-                        config.position === "bottom-right" ? "right-0" : "left-0"
-                      } h-12 w-12 rounded-full shadow-lg`}
-                      style={{ backgroundColor: config.primaryColor }}
-                      data-testid="button-toggle-preview"
-                    >
-                      <MessageSquare className="h-5 w-5 text-white" />
-                    </Button>
-                  </div>
+                      <Button
+                        size="icon"
+                        className={`absolute -bottom-2 ${
+                          config.position === "bottom-right" ? "right-0" : "left-0"
+                        } h-14 w-14 rounded-full shadow-2xl hover:scale-105 transition-transform active:scale-95`}
+                        style={{ backgroundColor: config.primaryColor || "#3B82F6" }}
+                        data-testid="button-toggle-preview"
+                      >
+                        <MessageSquare className="h-6 w-6 text-white" />
+                      </Button>
+                    </div>
                 ) : (
                   <Button
                     size="icon"
                     className={`absolute h-12 w-12 rounded-full shadow-lg ${
-                      config.position === "bottom-right" ? "right-4 bottom-4" : "left-4 bottom-4"
+                      (config.position || "bottom-right") === "bottom-right" ? "right-4 bottom-4" : "left-4 bottom-4"
                     }`}
-                    style={{ backgroundColor: config.primaryColor }}
+                    style={{ backgroundColor: config.primaryColor || "#3B82F6" }}
                     onClick={() => setIsPreviewOpen(true)}
                     data-testid="button-open-preview"
                   >
