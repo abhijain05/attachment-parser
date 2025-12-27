@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Select,
   SelectContent,
@@ -21,6 +24,26 @@ interface AdminSettings {
 
 export default function AdminPanel() {
   const { toast } = useToast();
+  const { user, isLoading: authLoading } = useAuth();
+  const [, navigate] = useLocation();
+
+  // Protect admin page - redirect non-admin users
+  if (authLoading) {
+    return (
+      <div className="p-6 lg:p-8 space-y-6 max-w-3xl mx-auto">
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
+
+  if (!user?.isAdmin) {
+    navigate("/dashboard");
+    return null;
+  }
   const [embeddingProvider, setEmbeddingProvider] = useState("sentence-transformers");
   const [embeddingModel, setEmbeddingModel] = useState("all-MiniLM-L6-v2");
 
