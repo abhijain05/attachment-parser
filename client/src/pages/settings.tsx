@@ -117,59 +117,48 @@ export default function Settings() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue="models" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="models">AI Models</TabsTrigger>
-            <TabsTrigger value="info">Info</TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>How It Works</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div>
+                <h4 className="font-medium mb-2">1. Knowledge Base Setup</h4>
+                <p className="text-muted-foreground">Upload your documents to the Knowledge Library. They'll be automatically indexed and chunked for retrieval.</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">2. Context Retrieval via MCP</h4>
+                <p className="text-muted-foreground">When a user sends a question, the MCP Server searches your knowledge base and retrieves relevant document chunks using the configured embedding model.</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">3. AI Response</h4>
+                <p className="text-muted-foreground">The AI generates an informed response based on your documents using the models managed in the admin panel.</p>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">4. Test & Deploy</h4>
+                <p className="text-muted-foreground">Test the chatbot in the Test Chatbot page, then embed it on your website using the Embed Script.</p>
+              </div>
+            </CardContent>
+          </Card>
 
-          <TabsContent value="info" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>How It Works</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                <div>
-                  <h4 className="font-medium mb-2">1. Knowledge Base Setup</h4>
-                  <p className="text-muted-foreground">Upload your documents to the Knowledge Library. They'll be automatically indexed and chunked for retrieval.</p>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">2. Configure AI Models</h4>
-                  <p className="text-muted-foreground">Set up API keys for your preferred providers (OpenAI, Google Gemini, or Tarang AI) and select specific model versions. You can configure multiple providers and use different models for different purposes.</p>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">3. Context Retrieval via MCP</h4>
-                  <p className="text-muted-foreground">When a user sends a question, the MCP Server searches your knowledge base and retrieves relevant document chunks using the configured embedding model.</p>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">4. AI Response</h4>
-                  <p className="text-muted-foreground">Your API key is used to send the question + context to your selected AI model (GPT-4o, Gemini, or Tarang AI), which generates an informed response based on your documents.</p>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">5. Test & Deploy</h4>
-                  <p className="text-muted-foreground">Test the chatbot in the Test Chatbot page, then embed it on your website using the Embed Script.</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>MCP Server Endpoints</CardTitle>
-                <CardDescription>The chatbot uses these endpoints to access your knowledge base</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm font-mono text-xs">
-                <div className="p-2 bg-muted rounded">
-                  <p className="text-muted-foreground">Search knowledge base:</p>
-                  <p>POST /api/mcp/{selectedProject}/search</p>
-                </div>
-                <div className="p-2 bg-muted rounded">
-                  <p className="text-muted-foreground">Get context:</p>
-                  <p>GET /api/mcp/{selectedProject}/context/{"{docId}"}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          <Card>
+            <CardHeader>
+              <CardTitle>MCP Server Endpoints</CardTitle>
+              <CardDescription>The chatbot uses these endpoints to access your knowledge base</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm font-mono text-xs">
+              <div className="p-2 bg-muted rounded">
+                <p className="text-muted-foreground">Search knowledge base:</p>
+                <p>POST /api/mcp/{selectedProject}/search</p>
+              </div>
+              <div className="p-2 bg-muted rounded">
+                <p className="text-muted-foreground">Get context:</p>
+                <p>GET /api/mcp/{selectedProject}/context/{"{docId}"}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
