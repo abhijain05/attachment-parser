@@ -1697,26 +1697,38 @@ Do not make up information. Always ground your answers in the provided sources.`
             quotaInfo = "OpenAI API is accessible";
           }
         } else if (provider === "tarang_ai") {
-          // Test Tarang AI connection
+          // Test Tarang AI connection with embeddings endpoint
           if (!url) {
             return res.status(400).json({ valid: false, message: "Tarang AI URL is required" });
           }
           
-          const response = await fetch(`${url}/health`, {
-            method: "GET",
+          const testResponse = await fetch(`${url}/embeddings`, {
+            method: "POST",
             headers: {
+              "Content-Type": "application/json",
               "api-key": apiKey,
             },
+            body: JSON.stringify({ 
+              input: "test", 
+              model: model || "short" 
+            }),
           });
           
-          if (response.ok) {
-            isValid = true;
-            message = "Tarang AI connection successful";
-            quotaInfo = "Service is accessible";
-          } else if (response.status === 401) {
+          if (testResponse.ok) {
+            const responseData = await testResponse.json();
+            if (responseData.embedding || responseData.data) {
+              isValid = true;
+              message = "API key is valid and working";
+              quotaInfo = "Tarang AI service is accessible";
+            } else {
+              message = "Invalid response from Tarang AI";
+            }
+          } else if (testResponse.status === 401) {
             message = "API key is invalid (401 Unauthorized)";
+          } else if (testResponse.status === 404) {
+            message = "Tarang AI endpoint not found. Check the URL.";
           } else {
-            message = `Service returned status ${response.status}`;
+            message = `Service returned status ${testResponse.status}`;
           }
         }
       } catch (err: any) {
