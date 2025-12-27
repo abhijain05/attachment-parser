@@ -235,7 +235,7 @@ const gemini = process.env.GEMINI_API_KEY
   : null;
 
 // Helper to get user ID from session
-function getUserId(req: Request): string {
+function getUserId(req: any): string {
   return (req.user as any)?.id;
 }
 
@@ -339,7 +339,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Auth routes
-  app.get("/api/auth/user", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/auth/user", isAuthenticated, async (req: any, res: any) => {
     try {
       const userId = getUserId(req);
       const user = await storage.getUser(userId);
@@ -351,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stats endpoint
-  app.get("/api/stats", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/stats", isAuthenticated, async (req: any, res: any) => {
     try {
       const userId = getUserId(req);
       const stats = await storage.getUserStats(userId);
@@ -363,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Projects CRUD
-  app.get("/api/projects", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/projects", isAuthenticated, async (req: any, res: any) => {
     try {
       const userId = getUserId(req);
       const projects = await storage.getProjects(userId);
@@ -374,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/projects/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/projects/:id", isAuthenticated, async (req: any, res: any) => {
     try {
       const project = await storage.getProject(req.params.id);
       if (!project) {
@@ -392,7 +392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/projects", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/projects", isAuthenticated, async (req: any, res: any) => {
     try {
       const userId = getUserId(req);
       const schema = z.object({
@@ -411,7 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/projects/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.delete("/api/projects/:id", isAuthenticated, async (req: any, res: any) => {
     try {
       const project = await storage.getProject(req.params.id);
       if (!project) {
@@ -430,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Documents CRUD
-  app.get("/api/documents", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/documents", isAuthenticated, async (req: any, res: any) => {
     try {
       const { projectId } = req.query;
       if (!projectId || typeof projectId !== "string") {
@@ -449,7 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/documents/upload", isAuthenticated, upload.single("file"), async (req: Request, res: Response) => {
+  app.post("/api/documents/upload", isAuthenticated, upload.single("file"), async (req: any, res: any) => {
     try {
       const { projectId } = req.body;
       if (!projectId || !req.file) {
@@ -541,7 +541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/documents/url", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/documents/url", isAuthenticated, async (req: any, res: any) => {
     try {
       const schema = z.object({
         projectId: z.string(),
@@ -602,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/documents/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.delete("/api/documents/:id", isAuthenticated, async (req: any, res: any) => {
     try {
       const doc = await storage.getDocument(req.params.id);
       if (!doc) {
@@ -622,7 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chatbot config
-  app.get("/api/chatbot-config/:projectId", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/chatbot-config/:projectId", isAuthenticated, async (req: any, res: any) => {
     try {
       const project = await storage.getProject(req.params.projectId);
       if (!project || project.userId !== getUserId(req)) {
@@ -645,7 +645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/chatbot-config/:projectId", isAuthenticated, async (req: Request, res: Response) => {
+  app.put("/api/chatbot-config/:projectId", isAuthenticated, async (req: any, res: any) => {
     try {
       const project = await storage.getProject(req.params.projectId);
       if (!project || project.userId !== getUserId(req)) {
@@ -715,7 +715,7 @@ Respond with ONLY "yes" or "no".
   }
 
   // Chat / AI endpoint
-  app.post("/api/chat", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/chat", isAuthenticated, async (req: any, res: any) => {
     try {
       const schema = z.object({
         projectId: z.string(),
@@ -1058,7 +1058,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Delete chat session endpoint
-  app.delete("/api/chat/:sessionId", isAuthenticated, async (req: Request, res: Response) => {
+  app.delete("/api/chat/:sessionId", isAuthenticated, async (req: any, res: any) => {
     try {
       const session = await storage.getChatSession(req.params.sessionId);
       if (!session) {
@@ -1080,7 +1080,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Analytics
-  app.get("/api/analytics", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/analytics", isAuthenticated, async (req: any, res: any) => {
     try {
       const { projectId, timeRange } = req.query;
       if (!projectId || typeof projectId !== "string") {
@@ -1123,7 +1123,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // MCP Server endpoints (public API for embedded chatbots)
-  app.post("/api/mcp/:projectId/search", async (req: Request, res: Response) => {
+  app.post("/api/mcp/:projectId/search", async (req: any, res: any) => {
     try {
       const apiKey = req.headers.authorization?.replace("Bearer ", "");
       const project = await storage.getProject(req.params.projectId);
@@ -1152,7 +1152,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     }
   });
 
-  app.get("/api/mcp/:projectId/context/:docId", async (req: Request, res: Response) => {
+  app.get("/api/mcp/:projectId/context/:docId", async (req: any, res: any) => {
     try {
       const apiKey = req.headers.authorization?.replace("Bearer ", "");
       const project = await storage.getProject(req.params.projectId);
@@ -1181,7 +1181,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     }
   });
 
-  app.get("/api/mcp/:projectId/sources", async (req: Request, res: Response) => {
+  app.get("/api/mcp/:projectId/sources", async (req: any, res: any) => {
     try {
       const apiKey = req.headers.authorization?.replace("Bearer ", "");
       const project = await storage.getProject(req.params.projectId);
@@ -1207,7 +1207,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Widget chat endpoint (public - for embedded chatbot)
-  app.post("/api/widget/chat", async (req: Request, res: Response) => {
+  app.post("/api/widget/chat", async (req: any, res: any) => {
     try {
       const { projectId, apiKey, sessionId, message } = req.body;
       
@@ -1300,7 +1300,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Widget script endpoint (public - for embedded chatbot)
-  app.get("/widget.js", (req: Request, res: Response) => {
+  app.get("/widget.js", (req: any, res: any) => {
     const projectId = req.query.projectId;
     const apiKey = req.query.apiKey;
     const sessionId = req.query.sessionId;
@@ -1316,7 +1316,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   
   // Create styles
   const style = document.createElement('style');
-  style.textContent = \`
+  style.textContent = `
     #kabot-widget-container {
       position: fixed;
       bottom: 90px;
@@ -1510,13 +1510,13 @@ Do not make up information. Always ground your answers in the provided sources.`
       background: white;
     }
     #kabot-footer a { color: #3B82F6; text-decoration: none; font-weight: 500; }
-  \`;
+  `;
   document.head.appendChild(style);
 
   // Create launcher
   const launcher = document.createElement('div');
   launcher.id = 'kabot-launcher';
-  launcher.innerHTML = \`<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><div id="kabot-notification" style="position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #EF4444; border-radius: 50%; border: 2px solid white;"></div>\`;
+  launcher.innerHTML = `<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><div id="kabot-notification" style="position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #EF4444; border-radius: 50%; border: 2px solid white;"></div>`;
   document.body.appendChild(launcher);
   
   // Create widget container
@@ -1526,7 +1526,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   // Create modern header
   const header = document.createElement('div');
   header.id = 'kabot-header';
-  header.innerHTML = \`
+  header.innerHTML = `
     <button id="kabot-close">×</button>
     <div id="kabot-header-content">
       <div id="kabot-avatar">
@@ -1542,7 +1542,7 @@ Do not make up information. Always ground your answers in the provided sources.`
       <span>We are online!</span>
     </div>
     <svg id="kabot-header-wave" viewBox="0 0 1440 320"><path d="M0,160L48,176C96,192,192,224,288,224C384,224,480,192,576,165.3C672,139,768,117,864,128C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
-  \`;
+  `;
   
   // Create messages area
   const messagesArea = document.createElement('div');
@@ -1557,14 +1557,14 @@ Do not make up information. Always ground your answers in the provided sources.`
   // Create input container
   const inputContainer = document.createElement('div');
   inputContainer.id = 'kabot-input-container';
-  inputContainer.innerHTML = \`
+  inputContainer.innerHTML = `
     <div id="kabot-input-wrapper">
       <input id="kabot-input" type="text" placeholder="Enter your message...">
       <button id="kabot-send">
         <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
       </button>
     </div>
-  \`;
+  `;
 
   const footer = document.createElement('div');
   footer.id = 'kabot-footer';
@@ -1633,13 +1633,18 @@ Do not make up information. Always ground your answers in the provided sources.`
     if (e.key === 'Enter') sendBtn.click();
   });
 })();
-    \`;
+    `;
     
     res.send(widgetCode);
   });
 
+  // Helper function to get user ID safely
+  function getUserId(req: any): number {
+    return (req.user as any)?.id || 0;
+  }
+
   // Visitor tracking endpoint (public - for embedded chatbot)
-  app.post("/api/visitor/track", async (req: Request, res: Response) => {
+  app.post("/api/visitor/track", async (req: any, res: any) => {
     try {
       const { projectId, apiKey, sessionId, pageUrl, referrer } = req.body;
       console.log(`[Tracking] Request received for project: ${projectId}, session: ${sessionId}`);
@@ -1685,7 +1690,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Visitors list endpoint (authenticated - owner only)
-  app.get("/api/visitors", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/visitors", isAuthenticated, async (req: any, res: any) => {
     try {
       const { projectId } = req.query;
       if (!projectId || typeof projectId !== "string") {
@@ -1706,7 +1711,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Live chat messages endpoint
-  app.post("/api/live-chat/send", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/live-chat/send", isAuthenticated, async (req: any, res: any) => {
     try {
       const { visitorSessionId, content } = req.body;
       
@@ -1734,7 +1739,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Get live chat history
-  app.get("/api/live-chat/:visitorSessionId", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/live-chat/:visitorSessionId", isAuthenticated, async (req: any, res: any) => {
     try {
       const visitorSession = await storage.getVisitorSession(req.params.visitorSessionId);
       if (!visitorSession) {
@@ -1781,7 +1786,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Admin-only routes
-  app.get("/api/admin/settings", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/admin/settings", isAuthenticated, async (req: any, res: any) => {
     try {
       const user = req.user as any;
       if (!user?.isAdmin) {
@@ -1795,7 +1800,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     }
   });
 
-  app.put("/api/admin/settings", isAuthenticated, async (req: Request, res: Response) => {
+  app.put("/api/admin/settings", isAuthenticated, async (req: any, res: any) => {
     try {
       const user = req.user as any;
       if (!user?.isAdmin) {
@@ -1811,7 +1816,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Get all users for admin (admin-only)
-  app.get("/api/admin/users", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/admin/users", isAuthenticated, async (req: any, res: any) => {
     try {
       const user = req.user as any;
       if (!user?.isAdmin) {
@@ -1826,7 +1831,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Get user's AI model assignment (admin-only)
-  app.get("/api/admin/user-models/:userId", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/admin/user-models/:userId", isAuthenticated, async (req: any, res: any) => {
     try {
       const user = req.user as any;
       if (!user?.isAdmin) {
@@ -1842,7 +1847,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Assign AI model to user (admin-only)
-  app.put("/api/admin/user-models/:userId", isAuthenticated, async (req: Request, res: Response) => {
+  app.put("/api/admin/user-models/:userId", isAuthenticated, async (req: any, res: any) => {
     try {
       const user = req.user as any;
       if (!user?.isAdmin) {
@@ -1869,7 +1874,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Test API key validity and quota (admin-only)
-  app.post("/api/admin/test-api-key", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/admin/test-api-key", isAuthenticated, async (req: any, res: any) => {
     try {
       const user = req.user as any;
       if (!user?.isAdmin) {
