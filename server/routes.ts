@@ -487,24 +487,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
           
-          // Get chatbot config to determine embedding provider
-          let chatbotConfig;
-          try {
-            chatbotConfig = await storage.getChatbotConfig(projectId);
-          } catch (err) {
-            console.warn("Could not load chatbot config, using defaults:", err);
-            chatbotConfig = null;
-          }
-          const embeddingProvider = (chatbotConfig?.aiProvider || "openai") as "openai" | "gemini" | "tarang_ai";
-          const userOpenaiKey = chatbotConfig?.openaiApiKey;
-          const userGeminiKey = chatbotConfig?.geminiApiKey;
+          // Use admin-assigned models for the user
+          const modelAssignment = await storage.getUserModelAssignment(userId);
+          const embeddingProvider = (modelAssignment?.aiProvider || "tarang_ai") as "openai" | "gemini" | "tarang_ai";
           
           const embeddingConfig = {
-            openaiClient: userOpenaiKey ? new OpenAI({ apiKey: userOpenaiKey }) : undefined,
-            geminiClient: userGeminiKey ? new GoogleGenerativeAI(userGeminiKey) : undefined,
-            tarangAiUrl: chatbotConfig?.tarangAiUrl,
-            tarangAiApiKey: chatbotConfig?.tarangAiApiKey,
-            tarangAiModel: chatbotConfig?.tarangAiModel,
+            openaiClient: modelAssignment?.openaiApiKey ? new OpenAI({ apiKey: modelAssignment.openaiApiKey }) : undefined,
+            geminiClient: modelAssignment?.geminiApiKey ? new GoogleGenerativeAI(modelAssignment.geminiApiKey) : undefined,
+            tarangAiUrl: modelAssignment?.tarangAiUrl,
+            tarangAiApiKey: modelAssignment?.tarangAiApiKey,
+            tarangAiModel: modelAssignment?.tarangAiModel,
           };
           
           // Generate embeddings and store in document_embeddings table
