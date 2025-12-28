@@ -1314,261 +1314,37 @@ Do not make up information. Always ground your answers in the provided sources.`
   const apiKey = "${apiKey}";
   const sessionId = "${sessionId}";
   
-  // Create styles
-  const style = document.createElement('style');
-  style.textContent = \`
-    #kabot-widget-container {
-      position: fixed;
-      bottom: 90px;
-      right: 20px;
-      width: 380px;
-      height: 600px;
-      background: white;
-      border-radius: 20px;
-      box-shadow: 0 10px 50px rgba(0,0,0,0.15);
-      display: none;
-      flex-direction: column;
-      z-index: 9999;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      overflow: hidden;
-      animation: kabot-fade-in 0.3s ease-out;
-    }
-    @keyframes kabot-fade-in {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    #kabot-launcher {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 60px;
-      height: 60px;
-      background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-      border-radius: 50%;
-      box-shadow: 0 5px 20px rgba(59, 130, 246, 0.4);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    #kabot-launcher:hover {
-      transform: scale(1.1);
-    }
-    #kabot-launcher svg {
-      width: 28px;
-      height: 28px;
-      fill: white;
-    }
-    #kabot-header {
-      background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-      color: white;
-      padding: 24px 20px;
-      border-radius: 0;
-      position: relative;
-    }
-    #kabot-header-content {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    #kabot-avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.2);
-      border: 2px solid white;
-      overflow: hidden;
-    }
-    #kabot-header-info {
-      flex: 1;
-    }
-    #kabot-header-title {
-      font-size: 14px;
-      opacity: 0.9;
-      margin: 0;
-    }
-    #kabot-header-name {
-      font-size: 18px;
-      font-weight: 600;
-      margin: 2px 0 0 0;
-    }
-    #kabot-status {
-      margin-top: 12px;
-      font-size: 13px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      opacity: 0.9;
-    }
-    #kabot-status-dot {
-      width: 8px;
-      height: 8px;
-      background: #4ade80;
-      border-radius: 50%;
-    }
-    #kabot-header-wave {
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      width: 100%;
-      height: 40px;
-      fill: white;
-    }
-    #kabot-close {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      background: none;
-      border: none;
-      color: white;
-      font-size: 24px;
-      cursor: pointer;
-      opacity: 0.8;
-      transition: opacity 0.2s;
-    }
-    #kabot-close:hover { opacity: 1; }
-    #kabot-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      background: white;
-    }
-    .kabot-msg {
-      max-width: 80%;
-      padding: 12px 16px;
-      border-radius: 18px;
-      font-size: 14px;
-      line-height: 1.4;
-      word-wrap: break-word;
-    }
-    .kabot-msg-bot {
-      align-self: flex-start;
-      background: #F3F4F6;
-      color: #1F2937;
-      border-bottom-left-radius: 4px;
-    }
-    .kabot-msg-user {
-      align-self: flex-end;
-      background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-      color: white;
-      border-bottom-right-radius: 4px;
-      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
-    }
-    #kabot-input-container {
-      padding: 20px;
-      background: white;
-      border-top: 1px solid #F3F4F6;
-    }
-    #kabot-input-wrapper {
-      display: flex;
-      align-items: center;
-      background: #F9FAFB;
-      border: 1px solid #E5E7EB;
-      border-radius: 25px;
-      padding: 4px 4px 4px 16px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    #kabot-input-wrapper:focus-within {
-      border-color: #3B82F6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-      background: white;
-    }
-    #kabot-input {
-      flex: 1;
-      border: none;
-      background: none;
-      padding: 8px 0;
-      font-size: 14px;
-      outline: none;
-      font-family: inherit;
-    }
-    #kabot-send {
-      width: 36px;
-      height: 36px;
-      background: #3B82F6;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.2s;
-    }
-    #kabot-send:hover { transform: scale(1.05); background: #2563EB; }
-    #kabot-send svg { width: 18px; height: 18px; fill: white; }
-    #kabot-footer {
-      padding: 0 20px 10px;
-      text-align: center;
-      font-size: 10px;
-      color: #9CA3AF;
-      background: white;
-    }
-    #kabot-footer a { color: #3B82F6; text-decoration: none; font-weight: 500; }
-  \`;
+  const style = document.createElement("style");
+  style.textContent = "#kabot-widget-container { position: fixed; bottom: 90px; right: 20px; width: 380px; height: 600px; background: white; border-radius: 20px; box-shadow: 0 10px 50px rgba(0,0,0,0.15); display: none; flex-direction: column; z-index: 9999; font-family: sans-serif; overflow: hidden; animation: kabot-fade-in 0.3s ease-out; } @keyframes kabot-fade-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } #kabot-launcher { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); border-radius: 50%; box-shadow: 0 5px 20px rgba(59, 130, 246, 0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 9999; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); } #kabot-launcher:hover { transform: scale(1.1); } #kabot-launcher svg { width: 28px; height: 28px; fill: white; } #kabot-header { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: white; padding: 24px 20px; border-radius: 0; position: relative; } #kabot-header-content { display: flex; align-items: center; gap: 12px; } #kabot-avatar { width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid white; overflow: hidden; } #kabot-header-info { flex: 1; } #kabot-header-title { font-size: 14px; opacity: 0.9; margin: 0; } #kabot-header-name { font-size: 18px; font-weight: 600; margin: 2px 0 0 0; } #kabot-status { margin-top: 12px; font-size: 13px; display: flex; align-items: center; gap: 6px; opacity: 0.9; } #kabot-status-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; } #kabot-header-wave { position: absolute; bottom: -1px; left: 0; width: 100%; height: 40px; fill: white; } #kabot-close { position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 24px; cursor: pointer; z-index: 10; } #kabot-messages { flex: 1; padding: 20px; overflow-y: auto; background: #F8FAFC; display: flex; flex-direction: column; gap: 12px; } .kabot-msg { max-width: 85%; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.5; } .kabot-msg-bot { background: white; color: #1E293B; align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); } .kabot-msg-user { background: #3B82F6; color: white; align-self: flex-end; border-bottom-right-radius: 4px; } #kabot-input-container { padding: 20px; background: white; border-top: 1px solid #E2E8F0; } #kabot-input-wrapper { display: flex; align-items: center; background: #F1F5F9; padding: 8px 12px; border-radius: 12px; gap: 10px; } #kabot-input { flex: 1; background: none; border: none; padding: 8px 0; outline: none; font-size: 15px; color: #1E293B; } #kabot-send { background: #3B82F6; border: none; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; } #kabot-send:hover { background: #2563EB; } #kabot-send svg { width: 18px; height: 18px; fill: white; } #kabot-footer { padding: 10px; text-align: center; font-size: 11px; color: #94A3B8; background: #F8FAFC; } #kabot-footer a { color: #3B82F6; text-decoration: none; font-weight: 600; }";
   document.head.appendChild(style);
-
-  // Create launcher
-  const launcher = document.createElement('div');
-  launcher.id = 'kabot-launcher';
-  launcher.innerHTML = \`<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><div id="kabot-notification" style="position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #EF4444; border-radius: 50%; border: 2px solid white;"></div>\`;
+  
+  const launcher = document.createElement("div");
+  launcher.id = "kabot-launcher";
+  launcher.innerHTML = "<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><div id="kabot-notification" style="position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #EF4444; border-radius: 50%; border: 2px solid white;"></div>";
   document.body.appendChild(launcher);
   
-  // Create widget container
-  const container = document.createElement('div');
-  container.id = 'kabot-widget-container';
+  const container = document.createElement("div");
+  container.id = "kabot-widget-container";
   
-  // Create modern header
-  const header = document.createElement('div');
-  header.id = 'kabot-header';
-  header.innerHTML = \`
-    <button id="kabot-close">×</button>
-    <div id="kabot-header-content">
-      <div id="kabot-avatar">
-        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica" style="width:100%;height:100%;object-fit:cover;" alt="AI">
-      </div>
-      <div id="kabot-header-info">
-        <p id="kabot-header-title">Chat with</p>
-        <p id="kabot-header-name">Jessica Smith</p>
-      </div>
-    </div>
-    <div id="kabot-status">
-      <div id="kabot-status-dot"></div>
-      <span>We are online!</span>
-    </div>
-    <svg id="kabot-header-wave" viewBox="0 0 1440 320"><path d="M0,160L48,176C96,192,192,224,288,224C384,224,480,192,576,165.3C672,139,768,117,864,128C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
-  \\`;
+  const header = document.createElement("div");
+  header.id = "kabot-header";
+  header.innerHTML = "<button id="kabot-close">×</button><div id="kabot-header-content"><div id="kabot-avatar"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica" style="width:100%;height:100%;object-fit:cover;" alt="AI"></div><div id="kabot-header-info"><p id="kabot-header-title">Chat with</p><p id="kabot-header-name">Jessica Smith</p></div></div><div id="kabot-status"><div id="kabot-status-dot"></div><span>We are online!</span></div><svg id="kabot-header-wave" viewBox="0 0 1440 320"><path d="M0,160L48,176C96,192,192,224,288,224C384,224,480,192,576,165.3C672,139,768,117,864,128C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>";
   
-  // Create messages area
-  const messagesArea = document.createElement('div');
-  messagesArea.id = 'kabot-messages';
+  const messagesArea = document.createElement("div");
+  messagesArea.id = "kabot-messages";
   
-  // Add default greeting
-  const greetingMsg = document.createElement('div');
-  greetingMsg.className = 'kabot-msg kabot-msg-bot';
-  greetingMsg.textContent = 'Hi 👋 How can I help you?';
+  const greetingMsg = document.createElement("div");
+  greetingMsg.className = "kabot-msg kabot-msg-bot";
+  greetingMsg.textContent = "Hi 👋 How can I help you?";
   messagesArea.appendChild(greetingMsg);
   
-  // Create input container
-  const inputContainer = document.createElement('div');
-  inputContainer.id = 'kabot-input-container';
-  inputContainer.innerHTML = \`
-    <div id="kabot-input-wrapper">
-      <input id="kabot-input" type="text" placeholder="Enter your message...">
-      <button id="kabot-send">
-        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-      </button>
-    </div>
-  \\`;
+  const inputContainer = document.createElement("div");
+  inputContainer.id = "kabot-input-container";
+  inputContainer.innerHTML = "<div id="kabot-input-wrapper"><input id="kabot-input" type="text" placeholder="Enter your message..."><button id="kabot-send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button></div>";
 
-  const footer = document.createElement('div');
-  footer.id = 'kabot-footer';
-  footer.innerHTML = 'Powered by <a href="#" target="_blank">KABOT AI</a>';
+  const footer = document.createElement("div");
+  footer.id = "kabot-footer";
+  footer.innerHTML = "Powered by <a href="#" target="_blank">KABOT AI</a>";
   
   container.appendChild(header);
   container.appendChild(messagesArea);
@@ -1576,64 +1352,56 @@ Do not make up information. Always ground your answers in the provided sources.`
   container.appendChild(footer);
   document.body.appendChild(container);
   
-  // Handlers
-  const input = document.getElementById('kabot-input');
-  const sendBtn = document.getElementById('kabot-send');
-  const closeBtn = document.getElementById('kabot-close');
+  const input = document.getElementById("kabot-input");
+  const sendBtn = document.getElementById("kabot-send");
+  const closeBtn = document.getElementById("kabot-close");
   
-  launcher.addEventListener('click', () => {
-    container.style.display = 'flex';
-    launcher.style.display = 'none';
-    const notification = document.getElementById('kabot-notification');
-    if (notification) notification.style.display = 'none';
+  launcher.addEventListener("click", () => {
+    container.style.display = "flex";
+    launcher.style.display = "none";
+    const notification = document.getElementById("kabot-notification");
+    if (notification) notification.style.display = "none";
   });
 
-  closeBtn.addEventListener('click', () => {
-    container.style.display = 'none';
-    launcher.style.display = 'flex';
+  closeBtn.addEventListener("click", () => {
+    container.style.display = "none";
+    launcher.style.display = "flex";
   });
   
-  sendBtn.addEventListener('click', async () => {
+  sendBtn.addEventListener("click", async () => {
     const message = input.value.trim();
     if (!message) return;
     
-    // Add user message
-    const userMsg = document.createElement('div');
-    userMsg.className = 'kabot-msg kabot-msg-user';
+    const userMsg = document.createElement("div");
+    userMsg.className = "kabot-msg kabot-msg-user";
     userMsg.textContent = message;
     messagesArea.appendChild(userMsg);
-    input.value = '';
+    input.value = "";
     messagesArea.scrollTop = messagesArea.scrollHeight;
     
-    // Send to API
     try {
-      const response = await fetch('/api/widget/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          apiKey,
-          sessionId,
-          message
-        })
+      const response = await fetch("/api/widget/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, apiKey, sessionId, message })
       });
       
       const data = await response.json();
-      const botMsg = document.createElement('div');
-      botMsg.className = 'kabot-msg kabot-msg-bot';
-      botMsg.textContent = data.message || 'Sorry, something went wrong.';
+      const botMsg = document.createElement("div");
+      botMsg.className = "kabot-msg kabot-msg-bot";
+      botMsg.textContent = data.message || "Sorry, something went wrong.";
       messagesArea.appendChild(botMsg);
       messagesArea.scrollTop = messagesArea.scrollHeight;
     } catch (e) {
-      console.error('Chat error:', e);
+      console.error("Chat error:", e);
     }
   });
   
-  input.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendBtn.click();
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendBtn.click();
   });
 })();
-    \`;
+`;
     
     res.send(widgetCode);
   });
