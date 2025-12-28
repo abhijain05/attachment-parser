@@ -41,16 +41,20 @@ export default function VisitorsPage({ projectId: propsProjectId }: VisitorsPage
   // Fetch live chat messages
   const { data: chatMessages = [] } = useQuery({
     queryKey: ["/api/live-chat", selectedVisitor],
-    queryFn: () => selectedVisitor ? apiRequest(`/api/live-chat/${selectedVisitor}`, { method: "GET" }) : Promise.resolve([]),
+    queryFn: async () => {
+      if (!selectedVisitor) return [];
+      const res = await apiRequest("GET", `/api/live-chat/${selectedVisitor}`);
+      return res.json();
+    },
     enabled: !!selectedVisitor,
   });
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: (content: string) =>
-      apiRequest("/api/live-chat/send", {
-        method: "POST",
-        body: { visitorSessionId: selectedVisitor, content },
+    mutationFn: async (content: string) =>
+      apiRequest("POST", "/api/live-chat/send", {
+        visitorSessionId: selectedVisitor,
+        content,
       }),
     onSuccess: () => {
       setChatMessage("");
