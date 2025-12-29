@@ -53,6 +53,9 @@ export default function Knowledge() {
   const [urlInput, setUrlInput] = useState("");
   const [uploadQueue, setUploadQueue] = useState<FileUpload[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isRegenerateDialogOpen, setIsRegenerateDialogOpen] = useState(false);
+  const [selectedDocId, setSelectedDocId] = useState<string>("");
+  const [selectedProvider, setSelectedProvider] = useState<string>("sentence-transformers");
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -133,8 +136,30 @@ export default function Knowledge() {
     },
     onError: () => {
       toast({
-        title: "Delete failed",
-        description: "Could not delete the document.",
+        title: "Failed to delete document",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const regenerateEmbeddingsMutation = useMutation({
+    mutationFn: async (data: { documentId: string; provider: string }) => {
+      return await apiRequest("POST", `/api/documents/${data.documentId}/regenerate-embeddings`, { provider: data.provider });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents", selectedProject] });
+      setIsRegenerateDialogOpen(false);
+      setSelectedDocId("");
+      toast({
+        title: "Embeddings regeneration started",
+        description: "Your document embeddings are being regenerated.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to regenerate embeddings",
+        description: "Please try again.",
         variant: "destructive",
       });
     },
@@ -430,15 +455,29 @@ export default function Knowledge() {
                       </div>
                     </div>
                     {getStatusBadge(doc.status || "processing")}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => deleteMutation.mutate(doc.id)}
-                      data-testid={`button-delete-doc-${doc.id}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Regenerate embeddings"
+                        onClick={() => {
+                          setSelectedDocId(doc.id);
+                          setSelectedProvider("sentence-transformers");
+                          setIsRegenerateDialogOpen(true);
+                        }}
+                        data-testid={`button-regenerate-embeddings-${doc.id}`}
+                      >
+                        <FileText className="h-4 w-4 text-primary" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMutation.mutate(doc.id)}
+                        data-testid={`button-delete-doc-${doc.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -485,6 +524,49 @@ export default function Knowledge() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRegenerateDialogOpen} onOpenChange={setIsRegenerateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regenerate Embeddings</DialogTitle>
+            <DialogDescription>
+              Choose an embedding provider to regenerate embeddings for this document.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="provider">Embedding Provider</Label>
+              <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                <SelectTrigger id="provider" className="mt-2" data-testid="select-embedding-provider">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sentence-transformers">Sentence Transformers (Local)</SelectItem>
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="gemini">Google Gemini</SelectItem>
+                  <SelectItem value="tarang_ai">Tarang AI</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsRegenerateDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => regenerateEmbeddingsMutation.mutate({ documentId: selectedDocId, provider: selectedProvider })}
+              disabled={regenerateEmbeddingsMutation.isPending}
+              data-testid="button-regenerate-embeddings-submit"
+            >
+              {regenerateEmbeddingsMutation.isPending ? "Regenerating..." : "Regenerate"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

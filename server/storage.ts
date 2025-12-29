@@ -427,6 +427,10 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(documentEmbeddings).where(and(eq(documentEmbeddings.userId, userId), eq(documentEmbeddings.documentId, documentId))).orderBy(documentEmbeddings.chunkIndex);
   }
 
+  async deleteDocumentEmbeddingsByDocId(documentId: string): Promise<void> {
+    await db.delete(documentEmbeddings).where(eq(documentEmbeddings.documentId, documentId));
+  }
+
   // Admin settings operations
   async getAdminSettings() {
     const [settings] = await db.select().from(adminSettings).limit(1);

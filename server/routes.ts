@@ -621,6 +621,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Regenerate embeddings for a document
+  app.post("/api/documents/:id/regenerate-embeddings", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const { provider } = req.body;
+      if (!provider || !["sentence-transformers", "openai", "gemini", "tarang_ai"].includes(provider)) {
+        return res.status(400).json({ message: "Invalid provider" });
+      }
+
+      const doc = await storage.getDocument(req.params.id);
+      if (!doc) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      // Verify ownership via project
+      const project = await storage.getProject(doc.projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Start regeneration asynchronously
+      (async () => {
+        try {
+          const userId = getUserId(req);
+          const modelAssignment = await storage.getUserModelAssignment(userId);
+
+          const embeddingConfig = {
+            openaiClient: modelAssignment?.openaiApiKey ? new OpenAI({ apiKey: modelAssignment.openaiApiKey }) : undefined,
+            geminiClient: modelAssignment?.geminiApiKey ? new GoogleGenerativeAI(modelAssignment.geminiApiKey) : undefined,
+            tarangAiUrl: modelAssignment?.tarangAiUrl || undefined,
+            tarangAiApiKey: modelAssignment?.tarangAiApiKey || undefined,
+            tarangAiModel: modelAssignment?.tarangAiModel || undefined,
+          };
+
+          // Get all chunks for this document
+          const chunks = await storage.getChunks(doc.id);
+          if (chunks.length === 0) {
+            console.error("No chunks found for document:", doc.id);
+            return;
+          }
+
+          // Regenerate embeddings with new provider
+          const documentEmbeddings = await Promise.all(
+            chunks.map(async (chunk, index) => {
+              const embedding = await getEmbedding(provider as "openai" | "gemini" | "tarang_ai" | "sentence-transformers", chunk.content, embeddingConfig);
+              return {
+                userId,
+                documentId: doc.id,
+                chunkIndex: index,
+                content: chunk.content,
+                embedding: embedding.length > 0 ? embedding : new Array(768).fill(0),
+                metadata: { provider, fileName: doc.name },
+              };
+            })
+          );
+
+          // Delete old embeddings and create new ones
+          await storage.deleteDocumentEmbeddingsByDocId(doc.id);
+          await storage.createDocumentEmbeddings(documentEmbeddings);
+
+          console.log(`[Document] Successfully regenerated embeddings for ${doc.name} using ${provider}`);
+        } catch (err) {
+          console.error("Error regenerating embeddings:", err);
+        }
+      })();
+
+      res.json({ message: "Embedding regeneration started" });
+    } catch (error) {
+      console.error("Error starting embedding regeneration:", error);
+      res.status(500).json({ message: "Failed to start embedding regeneration" });
+    }
+  });
+
   // Chatbot config
   app.get("/api/chatbot-config/:projectId", isAuthenticated, async (req: any, res: any) => {
     try {
