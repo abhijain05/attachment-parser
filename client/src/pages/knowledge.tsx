@@ -454,7 +454,14 @@ export default function Knowledge() {
                         <span>{doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "—"}</span>
                       </div>
                     </div>
-                    {getStatusBadge(doc.status || "processing")}
+                    {regenerateEmbeddingsMutation.isPending && selectedDocId === doc.id ? (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" data-testid={`badge-regenerating-${doc.id}`}>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Regenerating
+                      </Badge>
+                    ) : (
+                      getStatusBadge(doc.status || "processing")
+                    )}
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
@@ -465,6 +472,7 @@ export default function Knowledge() {
                           setSelectedProvider("sentence-transformers");
                           setIsRegenerateDialogOpen(true);
                         }}
+                        disabled={regenerateEmbeddingsMutation.isPending && selectedDocId === doc.id}
                         data-testid={`button-regenerate-embeddings-${doc.id}`}
                       >
                         <FileText className="h-4 w-4 text-primary" />
@@ -473,6 +481,7 @@ export default function Knowledge() {
                         variant="ghost"
                         size="icon"
                         onClick={() => deleteMutation.mutate(doc.id)}
+                        disabled={deleteMutation.isPending}
                         data-testid={`button-delete-doc-${doc.id}`}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
