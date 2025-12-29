@@ -1,7 +1,6 @@
 # Knowledge AI Platform - Development Tasks
 
 ## Task 1: Generate Embeddings Through Program Option
-- Add UI option to generate embeddings for uploaded documents
 - Implement embedding generation using available AI providers
 - Ensure embeddings are stored and associated with documents
 - Validate that embeddings can be generated successfully
