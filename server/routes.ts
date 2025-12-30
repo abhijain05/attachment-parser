@@ -641,6 +641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Start regeneration asynchronously
+      const embeddingProvider = provider;
       (async () => {
         try {
           const userId = getUserId(req);
@@ -664,14 +665,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Regenerate embeddings with new provider
           const documentEmbeddings = await Promise.all(
             chunks.map(async (chunk, index) => {
-              const embedding = await getEmbedding(provider as "openai" | "gemini" | "tarang_ai" | "sentence-transformers", chunk.content, embeddingConfig);
+              const embedding = await getEmbedding(embeddingProvider as "openai" | "gemini" | "tarang_ai" | "sentence-transformers", chunk.content, embeddingConfig);
               return {
                 userId,
                 documentId: doc.id,
                 chunkIndex: index,
                 content: chunk.content,
                 embedding: embedding.length > 0 ? embedding : new Array(768).fill(0),
-                metadata: { provider, fileName: doc.name },
+                metadata: { provider: embeddingProvider, fileName: doc.name },
               };
             })
           );
@@ -841,8 +842,13 @@ Respond with ONLY "yes" or "no".
         userGemini = new GoogleGenerativeAI(aiConfig.geminiApiKey) as any;
       }
 
-      // Fallback embedding provider if not specifically configured
-      const embeddingProvider = (aiProvider || "openai") as "openai" | "gemini" | "tarang_ai";
+      // Get the embedding provider from stored embeddings (must match what was used to create embeddings)
+      let embeddingProvider = await storage.getProjectEmbeddingProvider(projectId);
+      if (!embeddingProvider) {
+        // Fallback to tarang_ai if no embeddings exist yet
+        embeddingProvider = "tarang_ai";
+      }
+      console.log(`[Chat] Using embedding provider: ${embeddingProvider} (from stored embeddings)`);
 
       // Get previous chat history for context
       let chatHistory = await storage.getChatMessages(session.id);
@@ -1477,11 +1483,6 @@ Do not make up information. Always ground your answers in the provided sources.`
 
     res.send(widgetCode);
   });
-
-  // Helper function to get user ID safely
-  function getUserId(req: any): number {
-    return (req.user as any)?.id || 0;
-  }
 
   // Visitor tracking endpoint (public - for embedded chatbot)
   app.post("/api/visitor/track", async (req: any, res: any) => {

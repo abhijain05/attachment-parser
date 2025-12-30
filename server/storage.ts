@@ -42,35 +42,36 @@ export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  
+
   // Project operations
   getProjects(userId: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
   deleteProject(id: string): Promise<void>;
-  
+
   // Document operations
   getDocuments(projectId: string): Promise<Document[]>;
   getDocument(id: string): Promise<Document | undefined>;
   createDocument(doc: InsertDocument): Promise<Document>;
   updateDocumentStatus(id: string, status: string, content?: string): Promise<void>;
   deleteDocument(id: string): Promise<void>;
-  
+
   // Document chunks operations
   createChunks(chunks: { documentId: string; content: string; chunkIndex: number }[]): Promise<void>;
+  getChunks(documentId: string): Promise<DocumentChunk[]>;
   searchChunks(projectId: string, query: string, limit?: number): Promise<(DocumentChunk & { documentName: string })[]>;
-  
+
   // Chatbot config operations
   getChatbotConfig(projectId: string): Promise<ChatbotConfig | undefined>;
   upsertChatbotConfig(projectId: string, config: Partial<InsertChatbotConfig>): Promise<ChatbotConfig>;
-  
+
   // Chat session operations
   createChatSession(projectId: string, visitorId?: string): Promise<ChatSession>;
   getChatSession(id: string): Promise<ChatSession | undefined>;
   deleteChatSession(id: string): Promise<void>;
   addChatMessage(message: { sessionId: string; role: string; content: string; sources?: any; tokensUsed?: number }): Promise<ChatMessage>;
   getChatMessages(sessionId: string): Promise<ChatMessage[]>;
-  
+
   // Analytics operations
   logAnalyticsEvent(event: { projectId: string; eventType: string; metadata?: any }): Promise<void>;
   getAnalytics(projectId: string, days?: number): Promise<{
@@ -80,7 +81,7 @@ export interface IStorage {
     topSources: { documentName: string; hitCount: number }[];
     recentQueries: { query: string; answered: boolean; timestamp: string }[];
   }>;
-  
+
   // Stats
   getUserStats(userId: string): Promise<{
     totalProjects: number;
@@ -106,6 +107,7 @@ export interface IStorage {
   // Document embeddings operations
   createDocumentEmbeddings(embeddings: InsertDocumentEmbedding[]): Promise<void>;
   getDocumentEmbeddings(userId: string, documentId: string): Promise<DocumentEmbedding[]>;
+  getProjectEmbeddingProvider(projectId: string): Promise<string | undefined>;
 
   // Admin settings operations
   getAdminSettings(): Promise<AdminSettings | undefined>;
@@ -191,6 +193,15 @@ export class DatabaseStorage implements IStorage {
     await db.insert(documentChunks).values(chunks);
   }
 
+  async getChunks(documentId: string): Promise<DocumentChunk[]> {
+    const chunks = await db
+      .select()
+      .from(documentChunks)
+      .where(eq(documentChunks.documentId, documentId))
+      .orderBy(documentChunks.chunkIndex);
+    return chunks;
+  }
+
   async searchChunks(projectId: string, query: string, limit = 5, queryEmbedding?: number[]): Promise<(DocumentChunk & { documentName: string; similarity?: number })[]> {
     // Fetch all chunks for the project
     const allChunks = await db
@@ -228,7 +239,7 @@ export class DatabaseStorage implements IStorage {
         ...chunk,
         similarity: chunk.embedding ? cosineSimilarity(queryEmbedding, chunk.embedding) : 0,
       }));
-      
+
       return scored.sort((a, b) => (b.similarity || 0) - (a.similarity || 0)).slice(0, limit);
     }
 
@@ -420,11 +431,31 @@ export class DatabaseStorage implements IStorage {
   // Document embeddings operations
   async createDocumentEmbeddings(embeddings: InsertDocumentEmbedding[]): Promise<void> {
     if (embeddings.length === 0) return;
-    await db.insert(documentEmbeddings).values(embeddings);
+    const normalizedEmbeddings = embeddings.map(e => ({
+      ...e,
+      embedding: e.embedding ? Array.from(e.embedding) : undefined,
+    }));
+    await db.insert(documentEmbeddings).values(normalizedEmbeddings);
   }
 
   async getDocumentEmbeddings(userId: string, documentId: string): Promise<DocumentEmbedding[]> {
     return db.select().from(documentEmbeddings).where(and(eq(documentEmbeddings.userId, userId), eq(documentEmbeddings.documentId, documentId))).orderBy(documentEmbeddings.chunkIndex);
+  }
+
+  async getProjectEmbeddingProvider(projectId: string): Promise<string | undefined> {
+    // Get any embedding from the project to determine what provider was used
+    const embedding = await db
+      .select()
+      .from(documentEmbeddings)
+      .innerJoin(documents, eq(documentEmbeddings.documentId, documents.id))
+      .where(eq(documents.projectId, projectId))
+      .limit(1);
+
+    if (embedding.length > 0) {
+      const metadata = embedding[0].document_embeddings.metadata as any;
+      return metadata?.provider;
+    }
+    return undefined;
   }
 
   async deleteDocumentEmbeddingsByDocId(documentId: string): Promise<void> {
