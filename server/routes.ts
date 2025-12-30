@@ -1393,36 +1393,36 @@ Do not make up information. Always ground your answers in the provided sources.`
   const sessionId = "${sessionId}";
   
   const style = document.createElement("style");
-  style.textContent = "#kabot-widget-container { position: fixed; bottom: 90px; right: 20px; width: 380px; height: 600px; background: white; border-radius: 20px; box-shadow: 0 10px 50px rgba(0,0,0,0.15); display: none; flex-direction: column; z-index: 9999; font-family: sans-serif; overflow: hidden; animation: kabot-fade-in 0.3s ease-out; } @keyframes kabot-fade-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } #kabot-launcher { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); border-radius: 50%; box-shadow: 0 5px 20px rgba(59, 130, 246, 0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 9999; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); } #kabot-launcher:hover { transform: scale(1.1); } #kabot-launcher svg { width: 28px; height: 28px; fill: white; } #kabot-header { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: white; padding: 24px 20px; border-radius: 0; position: relative; } #kabot-header-content { display: flex; align-items: center; gap: 12px; } #kabot-avatar { width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid white; overflow: hidden; } #kabot-header-info { flex: 1; } #kabot-header-title { font-size: 14px; opacity: 0.9; margin: 0; } #kabot-header-name { font-size: 18px; font-weight: 600; margin: 2px 0 0 0; } #kabot-status { margin-top: 12px; font-size: 13px; display: flex; align-items: center; gap: 6px; opacity: 0.9; } #kabot-status-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; } #kabot-header-wave { position: absolute; bottom: -1px; left: 0; width: 100%; height: 40px; fill: white; } #kabot-close { position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 24px; cursor: pointer; z-index: 10; } #kabot-messages { flex: 1; padding: 20px; overflow-y: auto; background: #F8FAFC; display: flex; flex-direction: column; gap: 12px; } .kabot-msg { max-width: 85%; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.5; } .kabot-msg-bot { background: white; color: #1E293B; align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); } .kabot-msg-user { background: #3B82F6; color: white; align-self: flex-end; border-bottom-right-radius: 4px; } #kabot-input-container { padding: 20px; background: white; border-top: 1px solid #E2E8F0; } #kabot-input-wrapper { display: flex; align-items: center; background: #F1F5F9; padding: 8px 12px; border-radius: 12px; gap: 10px; } #kabot-input { flex: 1; background: none; border: none; padding: 8px 0; outline: none; font-size: 15px; color: #1E293B; } #kabot-send { background: #3B82F6; border: none; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; } #kabot-send:hover { background: #2563EB; } #kabot-send svg { width: 18px; height: 18px; fill: white; } #kabot-footer { padding: 10px; text-align: center; font-size: 11px; color: #94A3B8; background: #F8FAFC; } #kabot-footer a { color: #3B82F6; text-decoration: none; font-weight: 600; }";
+  style.textContent = "#tarangbot-widget-container { position: fixed; bottom: 90px; right: 20px; width: 380px; height: 600px; background: white; border-radius: 20px; box-shadow: 0 10px 50px rgba(0,0,0,0.15); display: none; flex-direction: column; z-index: 9999; font-family: sans-serif; overflow: hidden; animation: tarangbot-fade-in 0.3s ease-out; } @keyframes tarangbot-fade-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } #tarangbot-launcher { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); border-radius: 50%; box-shadow: 0 5px 20px rgba(59, 130, 246, 0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 9999; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); } #tarangbot-launcher:hover { transform: scale(1.1); } #tarangbot-launcher svg { width: 28px; height: 28px; fill: white; } #tarangbot-header { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: white; padding: 24px 20px; border-radius: 0; position: relative; } #tarangbot-header-content { display: flex; align-items: center; gap: 12px; } #tarangbot-avatar { width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid white; overflow: hidden; } #tarangbot-header-info { flex: 1; } #tarangbot-header-title { font-size: 14px; opacity: 0.9; margin: 0; } #tarangbot-header-name { font-size: 18px; font-weight: 600; margin: 2px 0 0 0; } #tarangbot-status { margin-top: 12px; font-size: 13px; display: flex; align-items: center; gap: 6px; opacity: 0.9; } #tarangbot-status-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; } #tarangbot-header-wave { position: absolute; bottom: -1px; left: 0; width: 100%; height: 40px; fill: white; } #tarangbot-close { position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 24px; cursor: pointer; z-index: 10; } #tarangbot-messages { flex: 1; padding: 20px; overflow-y: auto; background: #F8FAFC; display: flex; flex-direction: column; gap: 12px; } .tarangbot-msg { max-width: 85%; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.5; } .tarangbot-msg-bot { background: white; color: #1E293B; align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); } .tarangbot-msg-user { background: #3B82F6; color: white; align-self: flex-end; border-bottom-right-radius: 4px; } #tarangbot-input-container { padding: 20px; background: white; border-top: 1px solid #E2E8F0; } #tarangbot-input-wrapper { display: flex; align-items: center; background: #F1F5F9; padding: 8px 12px; border-radius: 12px; gap: 10px; } #tarangbot-input { flex: 1; background: none; border: none; padding: 8px 0; outline: none; font-size: 15px; color: #1E293B; } #tarangbot-send { background: #3B82F6; border: none; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; } #tarangbot-send:hover { background: #2563EB; } #tarangbot-send svg { width: 18px; height: 18px; fill: white; } #tarangbot-footer { padding: 10px; text-align: center; font-size: 11px; color: #94A3B8; background: #F8FAFC; } #tarangbot-footer a { color: #3B82F6; text-decoration: none; font-weight: 600; }";
   document.head.appendChild(style);
   
   const launcher = document.createElement("div");
-  launcher.id = "kabot-launcher";
-  launcher.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><div id="kabot-notification" style="position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #EF4444; border-radius: 50%; border: 2px solid white;"></div>';
+  launcher.id = "tarangbot-launcher";
+  launcher.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><div id="tarangbot-notification" style="position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #EF4444; border-radius: 50%; border: 2px solid white;"></div>';
   document.body.appendChild(launcher);
   
   const container = document.createElement("div");
-  container.id = "kabot-widget-container";
+  container.id = "tarangbot-widget-container";
   
   const header = document.createElement("div");
-  header.id = "kabot-header";
-  header.innerHTML = '<button id="kabot-close">×</button><div id="kabot-header-content"><div id="kabot-avatar"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica" style="width:100%;height:100%;object-fit:cover;" alt="AI"></div><div id="kabot-header-info"><p id="kabot-header-title">Chat with</p><p id="kabot-header-name">Jessica Smith</p></div></div><div id="kabot-status"><div id="kabot-status-dot"></div><span>We are online!</span></div><svg id="kabot-header-wave" viewBox="0 0 1440 320"><path d="M0,160L48,176C96,192,192,224,288,224C384,224,480,192,576,165.3C672,139,768,117,864,128C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>';
+  header.id = "tarangbot-header";
+  header.innerHTML = '<button id="tarangbot-close">×</button><div id="tarangbot-header-content"><div id="tarangbot-avatar"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica" style="width:100%;height:100%;object-fit:cover;" alt="AI"></div><div id="tarangbot-header-info"><p id="tarangbot-header-title">Chat with</p><p id="tarangbot-header-name">Jessica Smith</p></div></div><div id="tarangbot-status"><div id="tarangbot-status-dot"></div><span>We are online!</span></div><svg id="tarangbot-header-wave" viewBox="0 0 1440 320"><path d="M0,160L48,176C96,192,192,224,288,224C384,224,480,192,576,165.3C672,139,768,117,864,128C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>';
   
   const messagesArea = document.createElement("div");
-  messagesArea.id = "kabot-messages";
+  messagesArea.id = "tarangbot-messages";
   
   const greetingMsg = document.createElement("div");
-  greetingMsg.className = "kabot-msg kabot-msg-bot";
+  greetingMsg.className = "tarangbot-msg tarangbot-msg-bot";
   greetingMsg.textContent = "Hi 👋 How can I help you?";
   messagesArea.appendChild(greetingMsg);
   
   const inputContainer = document.createElement("div");
-  inputContainer.id = "kabot-input-container";
-  inputContainer.innerHTML = '<div id="kabot-input-wrapper"><input id="kabot-input" type="text" placeholder="Enter your message..."><button id="kabot-send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button></div>';
+  inputContainer.id = "tarangbot-input-container";
+  inputContainer.innerHTML = '<div id="tarangbot-input-wrapper"><input id="tarangbot-input" type="text" placeholder="Enter your message..."><button id="tarangbot-send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button></div>';
 
   const footer = document.createElement("div");
-  footer.id = "kabot-footer";
-  footer.innerHTML = 'Powered by <a href="#" target="_blank">KABOT AI</a>';
+  footer.id = "tarangbot-footer";
+  footer.innerHTML = 'Powered by <a href="#" target="_blank">TARANG AI</a>';
   
   container.appendChild(header);
   container.appendChild(messagesArea);
@@ -1430,14 +1430,14 @@ Do not make up information. Always ground your answers in the provided sources.`
   container.appendChild(footer);
   document.body.appendChild(container);
   
-  const input = document.getElementById("kabot-input");
-  const sendBtn = document.getElementById("kabot-send");
-  const closeBtn = document.getElementById("kabot-close");
+  const input = document.getElementById("tarangbot-input");
+  const sendBtn = document.getElementById("tarangbot-send");
+  const closeBtn = document.getElementById("tarangbot-close");
   
   launcher.addEventListener("click", () => {
     container.style.display = "flex";
     launcher.style.display = "none";
-    const notification = document.getElementById("kabot-notification");
+    const notification = document.getElementById("tarangbot-notification");
     if (notification) notification.style.display = "none";
   });
 
@@ -1451,7 +1451,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     if (!message) return;
     
     const userMsg = document.createElement("div");
-    userMsg.className = "kabot-msg kabot-msg-user";
+    userMsg.className = "tarangbot-msg tarangbot-msg-user";
     userMsg.textContent = message;
     messagesArea.appendChild(userMsg);
     input.value = "";
@@ -1466,7 +1466,7 @@ Do not make up information. Always ground your answers in the provided sources.`
       
       const data = await response.json();
       const botMsg = document.createElement("div");
-      botMsg.className = "kabot-msg kabot-msg-bot";
+      botMsg.className = "tarangbot-msg tarangbot-msg-bot";
       botMsg.textContent = data.message || "Sorry, something went wrong.";
       messagesArea.appendChild(botMsg);
       messagesArea.scrollTop = messagesArea.scrollHeight;
