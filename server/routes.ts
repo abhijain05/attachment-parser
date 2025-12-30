@@ -74,7 +74,7 @@ async function getEmbedding(
       const tarangAiUrl = config?.tarangAiUrl || process.env.TARANG_AI_URL || "http://31.97.210.209:8001";
       const tarangAiApiKey = config?.tarangAiApiKey || process.env.TARANG_AI_API_KEY;
       const tarangAiModel = config?.tarangAiModel || process.env.TARANG_AI_MODEL || "short";
-      
+
       if (!tarangAiApiKey) {
         console.warn("Tarang AI embedding requested but no API key configured");
         return [];
@@ -142,15 +142,15 @@ async function getTarangAIChatResponse(
 
     const data = await response.json();
     console.log("[Tarang AI] Response received:", JSON.stringify(data).substring(0, 200));
-    
+
     // Try multiple possible response field names
     let output = data.output || data.result || data.message || data.text || data.response || "";
-    
+
     // If it's an object with nested structure, try to extract
     if (typeof output === "object" && output !== null) {
       output = output.text || output.message || JSON.stringify(output);
     }
-    
+
     const result = String(output).trim();
     console.log(`[Tarang AI] Extracted output length: ${result.length}`);
     return result;
@@ -225,7 +225,7 @@ const upload = multer({
 
 // Initialize OpenAI client
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = process.env.OPENAI_API_KEY 
+const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
@@ -265,12 +265,12 @@ async function extractDocxText(buffer: Buffer): Promise<string> {
     // DOCX is a ZIP file, extract and parse document.xml
     const zip = new JSZip();
     await zip.loadAsync(buffer);
-    
+
     const xmlFile = zip.file("word/document.xml");
     if (!xmlFile) {
       return "DOCX file has no content";
     }
-    
+
     const xmlContent = await xmlFile.async("text");
     // Extract text between XML tags
     const text = xmlContent
@@ -280,7 +280,7 @@ async function extractDocxText(buffer: Buffer): Promise<string> {
       .replace(/&amp;/g, "&")
       .replace(/\s+/g, " ")
       .trim();
-    
+
     return text || "DOCX document (no text content)";
   } catch (err) {
     console.error("Error extracting DOCX:", err);
@@ -291,20 +291,20 @@ async function extractDocxText(buffer: Buffer): Promise<string> {
 // Extract text from file
 async function extractText(buffer: Buffer, filename: string): Promise<string> {
   const ext = filename.split(".").pop()?.toLowerCase();
-  
+
   if (ext === "txt" || ext === "md" || ext === "markdown") {
     return buffer.toString("utf-8");
   }
-  
+
   if (ext === "docx") {
     return await extractDocxText(buffer);
   }
-  
+
   if (ext === "pdf") {
     try {
       const data = await pdfParse.default(buffer);
       let text = data.text || "";
-      
+
       if (!text.trim()) {
         console.warn("PDF-parse extracted no text, trying fallback:", filename);
         // Try to extract printable ASCII text from the raw buffer
@@ -314,12 +314,12 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
           .replace(/\s+/g, " ")
           .trim();
       }
-      
+
       if (!text.trim()) {
         console.warn("PDF extracted no usable text content:", filename);
         return "PDF document (content could not be extracted)";
       }
-      
+
       // Clean up extracted text - normalize whitespace
       return text
         .split(/\s+/)
@@ -330,7 +330,7 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
       return "PDF document (extraction error)";
     }
   }
-  
+
   return "";
 }
 
@@ -455,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!projectId || !req.file) {
         return res.status(400).json({ message: "projectId and file required" });
       }
-      
+
       // Verify project ownership
       const project = await storage.getProject(projectId);
       if (!project || project.userId !== getUserId(req)) {
@@ -464,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const filename = req.file.originalname;
       const ext = filename.split(".").pop()?.toLowerCase() || "txt";
-      
+
       // Create document record
       const doc = await storage.createDocument({
         projectId,
@@ -480,17 +480,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const userId = getUserId(req);
           const content = await extractText(req.file!.buffer, filename);
           const chunks = chunkText(content);
-          
+
           if (chunks.length === 0 || !content.trim()) {
             console.error("No content extracted from document:", filename);
             await storage.updateDocumentStatus(doc.id, "error", "Could not extract text from file. Please ensure it's a valid, text-based document.");
             return;
           }
-          
+
           // Use admin-assigned models for the user
           const modelAssignment = await storage.getUserModelAssignment(userId);
           const embeddingProvider = (modelAssignment?.aiProvider || "tarang_ai") as "openai" | "gemini" | "tarang_ai";
-          
+
           const embeddingConfig = {
             openaiClient: modelAssignment?.openaiApiKey ? new OpenAI({ apiKey: modelAssignment.openaiApiKey }) : undefined,
             geminiClient: modelAssignment?.geminiApiKey ? new GoogleGenerativeAI(modelAssignment.geminiApiKey) : undefined,
@@ -498,7 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tarangAiApiKey: modelAssignment?.tarangAiApiKey || undefined,
             tarangAiModel: modelAssignment?.tarangAiModel || undefined,
           };
-          
+
           // Generate embeddings and store in document_embeddings table
           const documentEmbeddings = await Promise.all(
             chunks.map(async (text, index) => {
@@ -513,10 +513,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               };
             })
           );
-          
+
           // Store in document_embeddings table
           await storage.createDocumentEmbeddings(documentEmbeddings);
-          
+
           // Also store in document_chunks for backward compatibility
           const chunksWithEmbeddings = documentEmbeddings.map((e) => ({
             documentId: e.documentId,
@@ -524,7 +524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             chunkIndex: e.chunkIndex,
             embedding: e.embedding.slice(0, 1536), // Store in chunks too for compatibility
           }));
-          
+
           await storage.createChunks(chunksWithEmbeddings);
           await storage.updateDocumentStatus(doc.id, "ready", content);
           console.log(`[Document] Successfully processed ${filename}: ${chunks.length} chunks created with ${embeddingProvider} embeddings`);
@@ -548,7 +548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         url: z.string().url(),
       });
       const { projectId, url } = schema.parse(req.body);
-      
+
       // Verify project ownership
       const project = await storage.getProject(projectId);
       if (!project || project.userId !== getUserId(req)) {
@@ -575,7 +575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .replace(/<[^>]+>/g, " ")
             .replace(/\s+/g, " ")
             .trim();
-          
+
           const chunks = chunkText(text);
           await storage.createChunks(
             chunks.map((content, index) => ({
@@ -584,7 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               chunkIndex: index,
             }))
           );
-          
+
           await storage.updateDocumentStatus(doc.id, "ready", text);
         } catch (err) {
           console.error("Error processing URL:", err);
@@ -821,7 +821,7 @@ Respond with ONLY "yes" or "no".
       const userId = getUserId(req);
       const modelAssignment = await storage.getUserModelAssignment(userId);
       const aiProvider = modelAssignment?.aiProvider || "tarang_ai";
-      
+
       const aiConfig = {
         tarangAiUrl: modelAssignment?.tarangAiUrl,
         tarangAiApiKey: modelAssignment?.tarangAiApiKey,
@@ -846,12 +846,12 @@ Respond with ONLY "yes" or "no".
 
       // Get previous chat history for context
       let chatHistory = await storage.getChatMessages(session.id);
-      
+
       // Auto-summarize history if it exceeds threshold
       let historyContext = "";
       if (chatHistory.length > CHAT_HISTORY_SUMMARIZE_THRESHOLD) {
         console.log(`[Chat] History has ${chatHistory.length} messages, triggering auto-summarization...`);
-        
+
         const summary = await summarizeChatHistory(
           chatHistory,
           aiProvider,
@@ -861,7 +861,7 @@ Respond with ONLY "yes" or "no".
           userOpenai,
           userGemini
         );
-        
+
         if (summary) {
           console.log(`[Chat] History summarized (${summary.length} chars)`);
           // Keep only recent messages + summary
@@ -910,11 +910,11 @@ Respond with ONLY "yes" or "no".
         } catch (err) {
           console.warn("Failed to generate query embedding:", err);
         }
-        
+
         // Search for relevant context from knowledge base using semantic search
         relevantChunks = await storage.searchChunks(projectId, message, 5, queryEmbedding);
       }
-      
+
       console.log(`[Chat] Intent detection result: needsKnowledge=${needsKnowledge}`);
       console.log(`[Chat] Found ${relevantChunks.length} relevant chunks for query: "${message}"`);
       if (relevantChunks.length > 0) {
@@ -940,10 +940,10 @@ Respond with ONLY "yes" or "no".
         }
         sources.push(...uniqueSources.values());
 
-      // Get chatbot config for tone and other behavior settings
-      const chatbotConfig = await storage.getChatbotConfig(projectId);
-      const tone = chatbotConfig?.tone || "professional";
-        
+        // Get chatbot config for tone and other behavior settings
+        const chatbotConfig = await storage.getChatbotConfig(projectId);
+        const tone = chatbotConfig?.tone || "professional";
+
         const systemPrompt = `You are a helpful AI assistant. Answer questions ONLY based on the provided context. 
 If the answer is not in the context, say "I don't have information about that in my knowledge base."
 Be ${tone} in your responses.
@@ -1102,10 +1102,10 @@ Do not make up information. Always ground your answers in the provided sources.`
       if (!responseText || responseText.trim().length === 0) {
         responseText = "No response generated. Please try a different query or ensure your knowledge base has relevant content.";
       }
-      
+
       // Get all messages for this session
       const allMessages = await storage.getChatMessages(session.id);
-      
+
       const responsePayload = {
         sessionId: session.id,
         message: responseText,
@@ -1117,7 +1117,7 @@ Do not make up information. Always ground your answers in the provided sources.`
           sources: msg.sources,
         })),
       };
-      
+
       console.log("[Chat] Sending response:", { messageLength: responsePayload.message.length, hasSources: !!responsePayload.sources, historyLength: allMessages.length });
       res.json(responsePayload);
     } catch (error) {
@@ -1158,7 +1158,7 @@ Do not make up information. Always ground your answers in the provided sources.`
       if (!projectId || typeof projectId !== "string") {
         return res.status(400).json({ message: "projectId required" });
       }
-      
+
       const project = await storage.getProject(projectId);
       if (!project || project.userId !== getUserId(req)) {
         return res.status(403).json({ message: "Forbidden" });
@@ -1170,7 +1170,7 @@ Do not make up information. Always ground your answers in the provided sources.`
       else if (timeRange === "90d") days = 90;
 
       const analytics = await storage.getAnalytics(projectId, days);
-      
+
       // Generate daily stats for chart
       const dailyStats: { date: string; queries: number; tokens: number }[] = [];
       for (let i = days - 1; i >= 0; i--) {
@@ -1199,7 +1199,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     try {
       const apiKey = req.headers.authorization?.replace("Bearer ", "");
       const project = await storage.getProject(req.params.projectId);
-      
+
       if (!project || project.mcpApiKey !== apiKey) {
         return res.status(401).json({ message: "Invalid API key" });
       }
@@ -1228,7 +1228,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     try {
       const apiKey = req.headers.authorization?.replace("Bearer ", "");
       const project = await storage.getProject(req.params.projectId);
-      
+
       if (!project || project.mcpApiKey !== apiKey) {
         return res.status(401).json({ message: "Invalid API key" });
       }
@@ -1257,7 +1257,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     try {
       const apiKey = req.headers.authorization?.replace("Bearer ", "");
       const project = await storage.getProject(req.params.projectId);
-      
+
       if (!project || project.mcpApiKey !== apiKey) {
         return res.status(401).json({ message: "Invalid API key" });
       }
@@ -1282,7 +1282,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   app.post("/api/widget/chat", async (req: any, res: any) => {
     try {
       const { projectId, apiKey, sessionId, message } = req.body;
-      
+
       const project = await storage.getProject(projectId);
       if (!project || project.mcpApiKey !== apiKey) {
         return res.status(401).json({ message: "Invalid API key" });
@@ -1376,10 +1376,10 @@ Do not make up information. Always ground your answers in the provided sources.`
     const projectId = req.query.projectId;
     const apiKey = req.query.apiKey;
     const sessionId = req.query.sessionId;
-    
+
     res.setHeader("Content-Type", "application/javascript");
     res.setHeader("Cache-Control", "public, max-age=3600");
-    
+
     const widgetCode = `
 (function() {
   const projectId = "${projectId}";
@@ -1474,7 +1474,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 })();
 `;
-    
+
     res.send(widgetCode);
   });
 
@@ -1488,7 +1488,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     try {
       const { projectId, apiKey, sessionId, pageUrl, referrer } = req.body;
       console.log(`[Tracking] Request received for project: ${projectId}, session: ${sessionId}`);
-      
+
       const project = await storage.getProject(projectId);
       if (!project) {
         console.error(`[Tracking] Project not found: ${projectId}`);
@@ -1497,8 +1497,8 @@ Do not make up information. Always ground your answers in the provided sources.`
 
       // Allow tracking if API key matches or if it's coming from our own domain
       if (project.mcpApiKey !== apiKey) {
-         console.warn(`[Tracking] API key mismatch for project ${projectId}. Expected: ${project.mcpApiKey}, Received: ${apiKey}`);
-         // We'll still allow it for now to debug, or you might want to be strict
+        console.warn(`[Tracking] API key mismatch for project ${projectId}. Expected: ${project.mcpApiKey}, Received: ${apiKey}`);
+        // We'll still allow it for now to debug, or you might want to be strict
       }
 
       let visitor = sessionId ? await storage.getVisitorSession(sessionId) : null;
@@ -1515,10 +1515,10 @@ Do not make up information. Always ground your answers in the provided sources.`
         });
       } else {
         console.log(`[Tracking] Updating existing visitor session: ${visitor.id}`);
-        await storage.updateVisitorSession(visitor.id, { 
-          pageUrl, 
+        await storage.updateVisitorSession(visitor.id, {
+          pageUrl,
           isActive: true,
-          updatedAt: new Date() 
+          updatedAt: new Date()
         });
       }
 
@@ -1554,7 +1554,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   app.post("/api/live-chat/send", isAuthenticated, async (req: any, res: any) => {
     try {
       const { visitorSessionId, content } = req.body;
-      
+
       const visitorSession = await storage.getVisitorSession(visitorSessionId);
       if (!visitorSession) {
         return res.status(404).json({ message: "Visitor session not found" });
@@ -1600,7 +1600,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   const httpServer = createServer(app);
-  
+
   // Setup WebSocket for real-time chat
   const io = new SocketIOServer(httpServer, {
     cors: { origin: "*", methods: ["GET", "POST"] }
@@ -1695,7 +1695,7 @@ Do not make up information. Always ground your answers in the provided sources.`
       }
       const { userId } = req.params;
       const { aiProvider, tarangAiUrl, tarangAiApiKey, tarangAiModel, openaiApiKey, openaiModel, geminiApiKey, geminiModel } = req.body;
-      
+
       const assignment = await storage.upsertUserModelAssignment(userId, {
         aiProvider,
         tarangAiUrl,
@@ -1720,9 +1720,9 @@ Do not make up information. Always ground your answers in the provided sources.`
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
-      
+
       const { provider, apiKey, model, url } = req.body;
-      
+
       if (!provider || !apiKey) {
         return res.status(400).json({ valid: false, message: "Provider and API key are required" });
       }
@@ -1738,11 +1738,11 @@ Do not make up information. Always ground your answers in the provided sources.`
           const testClient = new GoogleGenerativeAI(apiKey);
           // Use a simpler model for testing or the one requested
           const testModel = testClient.getGenerativeModel({ model: model || "gemini-2.0-flash" });
-          
+
           try {
             // Use embedContent for a more lightweight test if generateContent is failing due to quota
             const result = await testModel.generateContent("ping");
-            
+
             if (result.response) {
               isValid = true;
               message = "API key is valid and working";
@@ -1754,33 +1754,51 @@ Do not make up information. Always ground your answers in the provided sources.`
             throw geminiErr;
           }
         } else if (provider === "openai") {
-          // Test OpenAI API key
+          // Test OpenAI API key with a simple completion request
+          console.log(`[Admin] Testing OpenAI API key`);
           const testClient = new OpenAI({ apiKey });
-          const response = await testClient.models.retrieve("gpt-4o");
-          
-          if (response && response.id) {
-            isValid = true;
-            message = "API key is valid and working";
-            quotaInfo = "OpenAI API is accessible";
+
+          try {
+            // Try to list models first (simpler test)
+            const response = await testClient.models.list();
+            if (response && response.data && response.data.length > 0) {
+              isValid = true;
+              message = "API key is valid and working";
+              quotaInfo = "OpenAI API is accessible";
+            }
+          } catch (modelErr: any) {
+            // If models.list fails, try a simple completion
+            console.log("[Admin] Models list failed, trying completion endpoint");
+            const completion = await testClient.chat.completions.create({
+              model: "gpt-3.5-turbo",
+              messages: [{ role: "user", content: "ping" }],
+              max_tokens: 5,
+            });
+
+            if (completion && completion.id) {
+              isValid = true;
+              message = "API key is valid and working";
+              quotaInfo = "OpenAI API is accessible";
+            }
           }
         } else if (provider === "tarang_ai") {
           // Test Tarang AI connection with embeddings endpoint
           if (!url) {
             return res.status(400).json({ valid: false, message: "Tarang AI URL is required" });
           }
-          
+
           const testResponse = await fetch(`${url}/embeddings`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "api-key": apiKey,
             },
-            body: JSON.stringify({ 
-              input: "test", 
-              model: model || "short" 
+            body: JSON.stringify({
+              input: "test",
+              model: model || "short"
             }),
           });
-          
+
           if (testResponse.ok) {
             const responseData = await testResponse.json();
             if (responseData.embedding || responseData.data) {
@@ -1799,12 +1817,21 @@ Do not make up information. Always ground your answers in the provided sources.`
           }
         }
       } catch (err: any) {
+        console.error(`[Admin] Error testing ${provider} API key:`, {
+          status: err.status,
+          message: err.message,
+          code: err.code,
+          error: err
+        });
+
         if (err.status === 401 || err.message?.includes("401") || err.message?.includes("unauthorized")) {
           message = "API key is invalid (401 Unauthorized)";
         } else if (err.status === 429 || err.message?.includes("429") || err.message?.includes("quota")) {
           message = "API quota exceeded or rate limit reached";
         } else if (err.message?.includes("ECONNREFUSED") || err.message?.includes("connection")) {
           message = `Cannot connect to service: ${err.message}`;
+        } else if (err.message?.includes("not found") || err.message?.includes("404")) {
+          message = "API endpoint not found. Please check your API key and configuration.";
         } else {
           message = err.message || "Failed to validate API key";
         }

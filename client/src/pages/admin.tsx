@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -267,7 +267,8 @@ function UserModelManagement() {
 
   const testMutation = useMutation({
     mutationFn: async (params: { provider: string; apiKey: string; model?: string; url?: string }) => {
-      return await apiRequest("POST", "/api/admin/test-api-key", params);
+      const res = await apiRequest("POST", "/api/admin/test-api-key", params);
+      return await res.json();
     },
     onSuccess: (data, params) => {
       const resultKey = `${params.provider}-${params.apiKey.slice(0, 5)}`;
@@ -275,7 +276,7 @@ function UserModelManagement() {
         ...prev,
         [resultKey]: data,
       }));
-      
+
       if (data.valid) {
         toast({
           title: "API Key Valid",
