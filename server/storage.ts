@@ -444,18 +444,24 @@ export class DatabaseStorage implements IStorage {
 
   async getProjectEmbeddingProvider(projectId: string): Promise<string | undefined> {
     // Get any embedding from the project to determine what provider was used
-    const embedding = await db
-      .select()
-      .from(documentEmbeddings)
-      .innerJoin(documents, eq(documentEmbeddings.documentId, documents.id))
-      .where(eq(documents.projectId, projectId))
-      .limit(1);
+    try {
+      const result = await db.execute(
+        sql`SELECT metadata FROM document_embeddings 
+            WHERE document_id::varchar IN (
+              SELECT id::varchar FROM documents WHERE project_id = ${projectId}
+            ) 
+            LIMIT 1`
+      );
 
-    if (embedding.length > 0) {
-      const metadata = embedding[0].document_embeddings.metadata as any;
-      return metadata?.provider;
+      if (result.rows && result.rows.length > 0) {
+        const metadata = result.rows[0] as any;
+        return metadata?.metadata?.provider || metadata?.provider;
+      }
+      return undefined;
+    } catch (err) {
+      console.error("Error getting project embedding provider:", err);
+      return undefined;
     }
-    return undefined;
   }
 
   async deleteDocumentEmbeddingsByDocId(documentId: string): Promise<void> {
