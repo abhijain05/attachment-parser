@@ -1,35 +1,56 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1"
-    />
-    <meta
-      name="description"
-      content="Transform your business knowledge into AI assistants that answer only from approved sources. Upload documents, create governed AI chatbots, and embed them on any website."
-    />
-    <meta
-      property="og:title"
-      content="Knowledge AI Platform - Business AI Knowledge Base"
-    />
-    <meta
-      property="og:description"
-      content="Upload your documents, create governed AI that answers only from approved sources, and embed a customizable chatbot on any website."
-    />
-    <meta property="og:type" content="website" />
-    <title>Knowledge AI Platform</title>
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <meta name="description"
+    content="Transform your business knowledge into AI assistants that answer only from approved sources. Upload documents, create governed AI chatbots, and embed them on any website." />
+  <meta property="og:title" content="Knowledge AI Platform - Business AI Knowledge Base" />
+  <meta property="og:description"
+    content="Upload your documents, create governed AI that answers only from approved sources, and embed a customizable chatbot on any website." />
+  <meta property="og:type" content="website" />
+  <title>Knowledge AI Platform</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+  <!-- Knowledge AI Chatbot Widget -->
+  <script>
+    (function () {
+      // Track visitor session
+      var sessionId = localStorage.getItem('kabot-session') || 'visitor-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('kabot-session', sessionId);
+
+      // Send visitor tracking
+      fetch('http://localhost:5001/api/visitor/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: 'ee1e1212-af34-4b77-8fe4-b3bf38b85ffa',
+          apiKey: '445f6036-a85d-4587-82fc-fe2b12faf008',
+          sessionId: sessionId,
+          pageUrl: window.location.href,
+          referrer: document.referrer
+        })
+      }).catch(e => console.log('Visitor tracking:', e));
+
+      var script = document.createElement('script');
+      script.src = 'http://localhost:5001/widget.js';
+      script.async = true;
+      script.dataset.projectId = 'ee1e1212-af34-4b77-8fe4-b3bf38b85ffa';
+      script.dataset.apiKey = '445f6036-a85d-4587-82fc-fe2b12faf008';
+      script.dataset.sessionId = sessionId;
+      document.head.appendChild(script);
+    })();
+  </script>
+</body>
+
 </html>

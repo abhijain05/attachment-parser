@@ -1398,7 +1398,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   
   const launcher = document.createElement("div");
   launcher.id = "kabot-launcher";
-  launcher.innerHTML = "<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><div id="kabot-notification" style="position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #EF4444; border-radius: 50%; border: 2px solid white;"></div>";
+  launcher.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><div id="kabot-notification" style="position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #EF4444; border-radius: 50%; border: 2px solid white;"></div>';
   document.body.appendChild(launcher);
   
   const container = document.createElement("div");
@@ -1406,7 +1406,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   
   const header = document.createElement("div");
   header.id = "kabot-header";
-  header.innerHTML = "<button id="kabot-close">×</button><div id="kabot-header-content"><div id="kabot-avatar"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica" style="width:100%;height:100%;object-fit:cover;" alt="AI"></div><div id="kabot-header-info"><p id="kabot-header-title">Chat with</p><p id="kabot-header-name">Jessica Smith</p></div></div><div id="kabot-status"><div id="kabot-status-dot"></div><span>We are online!</span></div><svg id="kabot-header-wave" viewBox="0 0 1440 320"><path d="M0,160L48,176C96,192,192,224,288,224C384,224,480,192,576,165.3C672,139,768,117,864,128C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>";
+  header.innerHTML = '<button id="kabot-close">×</button><div id="kabot-header-content"><div id="kabot-avatar"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica" style="width:100%;height:100%;object-fit:cover;" alt="AI"></div><div id="kabot-header-info"><p id="kabot-header-title">Chat with</p><p id="kabot-header-name">Jessica Smith</p></div></div><div id="kabot-status"><div id="kabot-status-dot"></div><span>We are online!</span></div><svg id="kabot-header-wave" viewBox="0 0 1440 320"><path d="M0,160L48,176C96,192,192,224,288,224C384,224,480,192,576,165.3C672,139,768,117,864,128C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>';
   
   const messagesArea = document.createElement("div");
   messagesArea.id = "kabot-messages";
@@ -1418,11 +1418,11 @@ Do not make up information. Always ground your answers in the provided sources.`
   
   const inputContainer = document.createElement("div");
   inputContainer.id = "kabot-input-container";
-  inputContainer.innerHTML = "<div id="kabot-input-wrapper"><input id="kabot-input" type="text" placeholder="Enter your message..."><button id="kabot-send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button></div>";
+  inputContainer.innerHTML = '<div id="kabot-input-wrapper"><input id="kabot-input" type="text" placeholder="Enter your message..."><button id="kabot-send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button></div>';
 
   const footer = document.createElement("div");
   footer.id = "kabot-footer";
-  footer.innerHTML = "Powered by <a href="#" target="_blank">KABOT AI</a>";
+  footer.innerHTML = 'Powered by <a href="#" target="_blank">KABOT AI</a>';
   
   container.appendChild(header);
   container.appendChild(messagesArea);
