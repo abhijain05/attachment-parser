@@ -36,7 +36,7 @@ import {
   type InsertUserModelAssignment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, gte } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -94,7 +94,9 @@ export interface IStorage {
   createVisitorSession(session: InsertVisitorSession): Promise<VisitorSession>;
   getVisitorSession(id: string): Promise<VisitorSession | undefined>;
   getProjectVisitors(projectId: string): Promise<VisitorSession[]>;
+  getLiveVisitors(projectId: string, inactivityMinutes?: number): Promise<VisitorSession[]>;
   updateVisitorSession(id: string, updates: Partial<VisitorSession>): Promise<void>;
+  markVisitorInactive(visitorSessionId: string): Promise<void>;
 
   // Live chat operations
   addLiveChatMessage(message: InsertLiveChatMessage): Promise<LiveChatMessage>;
@@ -399,6 +401,28 @@ export class DatabaseStorage implements IStorage {
 
   async getProjectVisitors(projectId: string): Promise<VisitorSession[]> {
     return db.select().from(visitorSessions).where(eq(visitorSessions.projectId, projectId)).orderBy(desc(visitorSessions.updatedAt));
+  }
+
+  async getLiveVisitors(projectId: string, inactivityMinutes: number = 5): Promise<VisitorSession[]> {
+    // Get only active visitors who were active within the last N minutes
+    const cutoffTime = new Date(Date.now() - inactivityMinutes * 60 * 1000);
+    const liveVisitors = await db.select()
+      .from(visitorSessions)
+      .where(
+        and(
+          eq(visitorSessions.projectId, projectId),
+          eq(visitorSessions.isActive, true),
+          gte(visitorSessions.updatedAt, cutoffTime)
+        )
+      )
+      .orderBy(desc(visitorSessions.updatedAt));
+    return liveVisitors;
+  }
+
+  async markVisitorInactive(visitorSessionId: string): Promise<void> {
+    await db.update(visitorSessions)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(visitorSessions.id, visitorSessionId));
   }
 
   async updateVisitorSession(id: string, updates: Partial<VisitorSession>): Promise<void> {

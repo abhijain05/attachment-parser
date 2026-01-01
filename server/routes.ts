@@ -1157,6 +1157,29 @@ Do not make up information. Always ground your answers in the provided sources.`
     }
   });
 
+  // Get AI conversation history for a visitor (authenticated - owner only)
+  app.get("/api/visitor-ai-history/:visitorSessionId", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const visitorSession = await storage.getVisitorSession(req.params.visitorSessionId);
+      if (!visitorSession) {
+        return res.status(404).json({ message: "Visitor session not found" });
+      }
+
+      // Verify project ownership
+      const project = await storage.getProject(visitorSession.projectId);
+      if (!project || project.userId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Return empty array for now - AI conversation history is linked via chat sessions
+      // TODO: Implement method to fetch chat sessions for a visitor
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching AI conversation history:", error);
+      res.status(500).json({ message: "Failed to fetch conversation history" });
+    }
+  });
+
   // Analytics
   app.get("/api/analytics", isAuthenticated, async (req: any, res: any) => {
     try {
@@ -1444,6 +1467,12 @@ Do not make up information. Always ground your answers in the provided sources.`
   closeBtn.addEventListener("click", () => {
     container.style.display = "none";
     launcher.style.display = "flex";
+    // Mark visitor as inactive when they close the widget
+    fetch("/api/visitor/disconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visitorSessionId: sessionId })
+    }).catch(e => console.warn("Failed to mark visitor inactive:", e));
   });
   
   sendBtn.addEventListener("click", async () => {
@@ -1477,6 +1506,15 @@ Do not make up information. Always ground your answers in the provided sources.`
   
   input.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendBtn.click();
+  });
+
+  // Mark visitor as inactive when page unloads
+  window.addEventListener("beforeunload", () => {
+    fetch("/api/visitor/disconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visitorSessionId: sessionId })
+    }).catch(e => console.warn("Failed to mark visitor inactive:", e));
   });
 })();
 `;
@@ -1533,7 +1571,7 @@ Do not make up information. Always ground your answers in the provided sources.`
   // Visitors list endpoint (authenticated - owner only)
   app.get("/api/visitors", isAuthenticated, async (req: any, res: any) => {
     try {
-      const { projectId } = req.query;
+      const { projectId, liveOnly = true } = req.query;
       if (!projectId || typeof projectId !== "string") {
         return res.status(400).json({ message: "projectId required" });
       }
@@ -1543,11 +1581,31 @@ Do not make up information. Always ground your answers in the provided sources.`
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const visitors = await storage.getProjectVisitors(projectId);
+      // Use getLiveVisitors by default (5 minute inactivity timeout), unless explicitly requesting all visitors
+      const visitors = liveOnly === "false"
+        ? await storage.getProjectVisitors(projectId)
+        : await storage.getLiveVisitors(projectId, 5);
       res.json(visitors);
     } catch (error) {
       console.error("Error fetching visitors:", error);
       res.status(500).json({ message: "Failed to fetch visitors" });
+    }
+  });
+
+  // Mark visitor as inactive endpoint (public - can be called from widget on disconnect)
+  app.post("/api/visitor/disconnect", async (req: any, res: any) => {
+    try {
+      const { visitorSessionId } = req.body;
+      if (!visitorSessionId) {
+        return res.status(400).json({ message: "visitorSessionId required" });
+      }
+
+      await storage.markVisitorInactive(visitorSessionId);
+      console.log(`[Tracking] Marked visitor ${visitorSessionId} as inactive`);
+      res.json({ message: "Visitor marked inactive" });
+    } catch (error) {
+      console.error("Error marking visitor inactive:", error);
+      res.status(500).json({ message: "Failed to mark visitor inactive" });
     }
   });
 
