@@ -24,8 +24,8 @@ const vector = customType<{ data: number[] }>({
     if (!value || !Array.isArray(value)) return "[" + new Array(768).fill(0).join(",") + "]";
     return "[" + value.join(",") + "]";
   },
-  fromDriver(value) {
-    return value;
+  fromDriver(value: unknown) {
+    return Array.isArray(value) ? value : [];
   },
 });
 
@@ -205,6 +205,7 @@ export const chatbotConfigs = pgTable("chatbot_configs", {
   tarangAiApiKey: text("tarang_ai_api_key"), // Tarang AI API key
   tarangAiModel: varchar("tarang_ai_model", { length: 100 }), // Tarang AI model name (e.g., llama3.2:3b)
   botLogoUrl: text("bot_logo_url"), // URL for chatbot logo
+  allowedDomains: jsonb("allowed_domains").$type<string[]>().default(sql`'[]'`), // Allowed domains for CORS, e.g. ["example.com", "app.example.com"]
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -268,9 +269,9 @@ export const analyticsEvents = pgTable("analytics_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   eventType: varchar("event_type", { length: 50 }).notNull(), // query, unanswered, source_hit
-  metadata: jsonb("metadata").$type<{ 
-    query?: string; 
-    tokensUsed?: number; 
+  metadata: jsonb("metadata").$type<{
+    query?: string;
+    tokensUsed?: number;
     sourceDocIds?: string[];
     answered?: boolean;
   }>(),

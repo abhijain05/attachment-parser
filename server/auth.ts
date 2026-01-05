@@ -7,6 +7,7 @@ import connectPg from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import jwt from "jsonwebtoken";
 import { db } from "./db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -45,7 +46,7 @@ export function getSession() {
 
 async function sendVerificationEmail(email: string, token: string, baseUrl: string) {
   const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${token}`;
-  
+
   await transporter.sendMail({
     from: process.env.SMTP_USER,
     to: email,
@@ -87,7 +88,7 @@ export async function setupAuth(app: Express) {
       async (email, password, done) => {
         try {
           const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
-          
+
           if (!user) {
             return done(null, false, { message: "Invalid email or password" });
           }
@@ -132,7 +133,7 @@ export async function setupAuth(app: Express) {
 
             if (!user) {
               [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
-              
+
               if (user) {
                 [user] = await db
                   .update(users)
@@ -332,3 +333,90 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   }
   next();
 };
+
+// Widget JWT Token Management
+interface WidgetTokenPayload {
+  projectId: string;
+  type: "widget";
+  iat: number;
+  exp: number;
+}
+
+/**
+ * Generate a short-lived JWT token for widget authentication
+ * Token expires in 15 minutes
+ */
+export function generateWidgetToken(projectId: string): string {
+  const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET || "fallback-secret";
+  const payload: Omit<WidgetTokenPayload, "iat" | "exp"> = {
+    projectId,
+    type: "widget",
+  };
+
+  return jwt.sign(payload, secret, { expiresIn: "15m" });
+}
+
+/**
+ * Verify and decode a widget JWT token
+ */
+export function verifyWidgetToken(token: string): WidgetTokenPayload | null {
+  try {
+    const secret = process.env.JWT_SECRET || process.env.SESSION_SECRET || "fallback-secret";
+    const decoded = jwt.verify(token, secret) as WidgetTokenPayload;
+
+    if (decoded.type !== "widget") {
+      return null;
+    }
+
+    return decoded;
+  } catch (error) {
+    console.error("Token verification error:", error);
+    return null;
+  }
+}
+
+/**
+ * Validate domain against allowed domains
+ */
+export function validateDomain(origin: string | undefined, allowedDomains: string[] | null): boolean {
+  if (!origin) {
+    return false;
+  }
+
+  // Allow localhost for development
+  if (process.env.NODE_ENV !== "production") {
+    if (origin.includes("localhost") || origin.includes("127.0.0.1") || origin.includes("0.0.0.0")) {
+      return true;
+    }
+  }
+
+  if (!allowedDomains || allowedDomains.length === 0) {
+    return false;
+  }
+
+  try {
+    const originUrl = new URL(origin);
+    const originDomain = originUrl.hostname;
+
+    // Check exact match or wildcard
+    return allowedDomains.some(domain => {
+      if (domain === "*") {
+        // Wildcard - allow any domain (use with caution)
+        return true;
+      }
+
+      if (domain.startsWith("*.")) {
+        // Subdomain wildcard (e.g., *.example.com)
+        const baseDomain = domain.slice(2); // Remove *.
+        return originDomain === baseDomain || originDomain.endsWith("." + baseDomain);
+      }
+
+      // Exact domain match
+      return originDomain === domain;
+    });
+  } catch (error) {
+    console.error("Domain validation error:", error);
+    return false;
+  }
+}
+

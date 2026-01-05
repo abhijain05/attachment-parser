@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./auth";
+import { setupAuth, isAuthenticated, generateWidgetToken, verifyWidgetToken, validateDomain } from "./auth";
 import { z } from "zod";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -731,6 +731,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         configData.enableLiveChat = configData.enableLiveChat === 'true';
       }
 
+      // Handle allowedDomains - validate and normalize
+      if (configData.allowedDomains) {
+        if (!Array.isArray(configData.allowedDomains)) {
+          return res.status(400).json({ message: "allowedDomains must be an array of domain strings" });
+        }
+        // Normalize domains (lowercase, trim whitespace)
+        configData.allowedDomains = configData.allowedDomains
+          .map((d: string) => (typeof d === 'string' ? d.toLowerCase().trim() : ''))
+          .filter((d: string) => d.length > 0);
+      }
+
       const config = await storage.upsertChatbotConfig(req.params.projectId, configData);
       res.json(config);
     } catch (error) {
@@ -1307,14 +1318,69 @@ Do not make up information. Always ground your answers in the provided sources.`
     }
   });
 
+  // Widget token endpoint (public - for script tag integration)
+  // Generates short-lived JWT tokens for widget authentication
+  app.post("/api/widget/token", async (req: any, res: any) => {
+    try {
+      const { projectId, origin } = req.body;
+
+      if (!projectId) {
+        return res.status(400).json({ message: "projectId is required" });
+      }
+
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get chatbot config with allowed domains
+      const config = await storage.getChatbotConfig(projectId);
+      const allowedDomains = config?.allowedDomains as string[] | null || [];
+
+      // Validate domain against allowedDomains
+      const requestOrigin = origin || req.headers.origin;
+      if (!validateDomain(requestOrigin, allowedDomains)) {
+        console.warn(`[Widget] Domain validation failed for origin: ${requestOrigin}, allowedDomains: ${JSON.stringify(allowedDomains)}`);
+        return res.status(403).json({ message: "Domain not allowed" });
+      }
+
+      // Generate short-lived JWT token (15 minutes)
+      const token = generateWidgetToken(projectId);
+
+      res.json({
+        token,
+        expiresIn: 900, // 15 minutes in seconds
+      });
+    } catch (error) {
+      console.error("Widget token error:", error);
+      res.status(500).json({ message: "Failed to generate token" });
+    }
+  });
+
   // Widget chat endpoint (public - for embedded chatbot)
   app.post("/api/widget/chat", async (req: any, res: any) => {
     try {
-      const { projectId, apiKey, sessionId, message } = req.body;
+      const { projectId, token, sessionId, message } = req.body;
+      const requestOrigin = req.headers.origin;
+
+      // Validate JWT token instead of API key
+      const tokenPayload = verifyWidgetToken(token);
+      if (!tokenPayload || tokenPayload.projectId !== projectId) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
 
       const project = await storage.getProject(projectId);
-      if (!project || project.mcpApiKey !== apiKey) {
-        return res.status(401).json({ message: "Invalid API key" });
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Validate domain
+      const config = await storage.getChatbotConfig(projectId);
+      const allowedDomains = config?.allowedDomains as string[] | null || [];
+
+      if (!validateDomain(requestOrigin, allowedDomains)) {
+        console.warn(`[Widget] Domain validation failed for chat. Origin: ${requestOrigin}, allowedDomains: ${JSON.stringify(allowedDomains)}`);
+        return res.status(403).json({ message: "Domain not allowed" });
       }
 
       let session = sessionId ? await storage.getChatSession(sessionId) : null;
@@ -1401,19 +1467,60 @@ Do not make up information. Always ground your answers in the provided sources.`
   });
 
   // Widget script endpoint (public - for embedded chatbot)
+  // Secure version: requires token validation and domain allow-listing
   app.get("/widget.js", (req: any, res: any) => {
     const projectId = req.query.projectId;
-    const apiKey = req.query.apiKey;
-    const sessionId = req.query.sessionId;
+
+    if (!projectId) {
+      res.status(400).send('console.error("Missing projectId");');
+      return;
+    }
 
     res.setHeader("Content-Type", "application/javascript");
     res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("X-Content-Type-Options", "nosniff");
 
     const widgetCode = `
 (function() {
   const projectId = "${projectId}";
-  const apiKey = "${apiKey}";
-  const sessionId = "${sessionId}";
+  const widgetServerUrl = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') ? window.location.origin : "${req.protocol}://${req.get("host")}";
+  let widgetToken = null;
+  let tokenExpireTime = 0;
+  let sessionId = null;
+  
+  // Secure token management - fetch fresh token before each API call
+  async function getValidToken() {
+    const now = Date.now();
+    
+    // Reuse token if still valid (with 1 minute buffer)
+    if (widgetToken && tokenExpireTime > now + 60000) {
+      return widgetToken;
+    }
+    
+    try {
+      const response = await fetch(widgetServerUrl + "/api/widget/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          projectId: projectId,
+          origin: window.location.origin
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to get widget token: " + response.statusText);
+      }
+      
+      const data = await response.json();
+      widgetToken = data.token;
+      tokenExpireTime = now + (data.expiresIn * 1000);
+      console.log("[Widget] New token obtained, expires in " + data.expiresIn + "s");
+      return widgetToken;
+    } catch (error) {
+      console.error("[Widget] Token retrieval error:", error);
+      throw error;
+    }
+  }
   
   const style = document.createElement("style");
   style.textContent = "#tarangbot-widget-container { position: fixed; bottom: 90px; right: 20px; width: 380px; height: 600px; background: white; border-radius: 20px; box-shadow: 0 10px 50px rgba(0,0,0,0.15); display: none; flex-direction: column; z-index: 9999; font-family: sans-serif; overflow: hidden; animation: tarangbot-fade-in 0.3s ease-out; } @keyframes tarangbot-fade-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } #tarangbot-launcher { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); border-radius: 50%; box-shadow: 0 5px 20px rgba(59, 130, 246, 0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 9999; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); } #tarangbot-launcher:hover { transform: scale(1.1); } #tarangbot-launcher svg { width: 28px; height: 28px; fill: white; } #tarangbot-header { background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); color: white; padding: 24px 20px; border-radius: 0; position: relative; } #tarangbot-header-content { display: flex; align-items: center; gap: 12px; } #tarangbot-avatar { width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid white; overflow: hidden; } #tarangbot-header-info { flex: 1; } #tarangbot-header-title { font-size: 14px; opacity: 0.9; margin: 0; } #tarangbot-header-name { font-size: 18px; font-weight: 600; margin: 2px 0 0 0; } #tarangbot-status { margin-top: 12px; font-size: 13px; display: flex; align-items: center; gap: 6px; opacity: 0.9; } #tarangbot-status-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; } #tarangbot-header-wave { position: absolute; bottom: -1px; left: 0; width: 100%; height: 40px; fill: white; } #tarangbot-close { position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 24px; cursor: pointer; z-index: 10; } #tarangbot-messages { flex: 1; padding: 20px; overflow-y: auto; background: #F8FAFC; display: flex; flex-direction: column; gap: 12px; } .tarangbot-msg { max-width: 85%; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.5; } .tarangbot-msg-bot { background: white; color: #1E293B; align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); } .tarangbot-msg-user { background: #3B82F6; color: white; align-self: flex-end; border-bottom-right-radius: 4px; } #tarangbot-input-container { padding: 20px; background: white; border-top: 1px solid #E2E8F0; } #tarangbot-input-wrapper { display: flex; align-items: center; background: #F1F5F9; padding: 8px 12px; border-radius: 12px; gap: 10px; } #tarangbot-input { flex: 1; background: none; border: none; padding: 8px 0; outline: none; font-size: 15px; color: #1E293B; } #tarangbot-send { background: #3B82F6; border: none; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; } #tarangbot-send:hover { background: #2563EB; } #tarangbot-send svg { width: 18px; height: 18px; fill: white; } #tarangbot-footer { padding: 10px; text-align: center; font-size: 11px; color: #94A3B8; background: #F8FAFC; } #tarangbot-footer a { color: #3B82F6; text-decoration: none; font-weight: 600; }";
@@ -1468,7 +1575,7 @@ Do not make up information. Always ground your answers in the provided sources.`
     container.style.display = "none";
     launcher.style.display = "flex";
     // Mark visitor as inactive when they close the widget
-    fetch("/api/visitor/disconnect", {
+    fetch(widgetServerUrl + "/api/visitor/disconnect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ visitorSessionId: sessionId })
@@ -1487,13 +1594,22 @@ Do not make up information. Always ground your answers in the provided sources.`
     messagesArea.scrollTop = messagesArea.scrollHeight;
     
     try {
-      const response = await fetch("/api/widget/chat", {
+      // Get fresh token before making chat request
+      const token = await getValidToken();
+      
+      const response = await fetch(widgetServerUrl + "/api/widget/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, apiKey, sessionId, message })
+        body: JSON.stringify({ projectId, token, sessionId, message })
       });
       
+      if (!response.ok) {
+        throw new Error("Chat failed: " + response.statusText);
+      }
+      
       const data = await response.json();
+      sessionId = data.sessionId;
+      
       const botMsg = document.createElement("div");
       botMsg.className = "tarangbot-msg tarangbot-msg-bot";
       botMsg.textContent = data.message || "Sorry, something went wrong.";
@@ -1501,6 +1617,11 @@ Do not make up information. Always ground your answers in the provided sources.`
       messagesArea.scrollTop = messagesArea.scrollHeight;
     } catch (e) {
       console.error("Chat error:", e);
+      const errorMsg = document.createElement("div");
+      errorMsg.className = "tarangbot-msg tarangbot-msg-bot";
+      errorMsg.textContent = "Error: " + (e.message || "Failed to send message");
+      messagesArea.appendChild(errorMsg);
+      messagesArea.scrollTop = messagesArea.scrollHeight;
     }
   });
   
@@ -1510,402 +1631,405 @@ Do not make up information. Always ground your answers in the provided sources.`
 
   // Mark visitor as inactive when page unloads
   window.addEventListener("beforeunload", () => {
-    fetch("/api/visitor/disconnect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visitorSessionId: sessionId })
-    }).catch(e => console.warn("Failed to mark visitor inactive:", e));
+    if (sessionId) {
+      fetch(widgetServerUrl + "/api/visitor/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visitorSessionId: sessionId })
+      }).catch(e => console.warn("Failed to mark visitor inactive:", e));
+    }
   });
 })();
 `;
 
     res.send(widgetCode);
   });
+});
 
-  // Visitor tracking endpoint (public - for embedded chatbot)
-  app.post("/api/visitor/track", async (req: any, res: any) => {
-    try {
-      const { projectId, apiKey, sessionId, pageUrl, referrer } = req.body;
-      console.log(`[Tracking] Request received for project: ${projectId}, session: ${sessionId}`);
+// Visitor tracking endpoint (public - for embedded chatbot)
+app.post("/api/visitor/track", async (req: any, res: any) => {
+  try {
+    const { projectId, apiKey, sessionId, pageUrl, referrer } = req.body;
+    console.log(`[Tracking] Request received for project: ${projectId}, session: ${sessionId}`);
 
-      const project = await storage.getProject(projectId);
-      if (!project) {
-        console.error(`[Tracking] Project not found: ${projectId}`);
-        return res.status(401).json({ message: "Invalid project ID" });
-      }
-
-      // Allow tracking if API key matches or if it's coming from our own domain
-      if (project.mcpApiKey !== apiKey) {
-        console.warn(`[Tracking] API key mismatch for project ${projectId}. Expected: ${project.mcpApiKey}, Received: ${apiKey}`);
-        // We'll still allow it for now to debug, or you might want to be strict
-      }
-
-      let visitor = sessionId ? await storage.getVisitorSession(sessionId) : null;
-      if (!visitor) {
-        console.log(`[Tracking] Creating new visitor session: ${sessionId}`);
-        visitor = await storage.createVisitorSession({
-          projectId,
-          sessionId: sessionId || `visitor-${Date.now()}-${Math.random()}`,
-          pageUrl,
-          referrer,
-          chatMode: "ai",
-          isActive: true,
-          visitorName: `Visitor ${Math.floor(Math.random() * 1000)}`,
-        });
-      } else {
-        console.log(`[Tracking] Updating existing visitor session: ${visitor.id}`);
-        await storage.updateVisitorSession(visitor.id, {
-          pageUrl,
-          isActive: true,
-          updatedAt: new Date()
-        });
-      }
-
-      res.json({ sessionId: visitor.id });
-    } catch (error) {
-      console.error("Visitor tracking error:", error);
-      res.status(500).json({ message: "Tracking failed" });
+    const project = await storage.getProject(projectId);
+    if (!project) {
+      console.error(`[Tracking] Project not found: ${projectId}`);
+      return res.status(401).json({ message: "Invalid project ID" });
     }
-  });
 
-  // Visitors list endpoint (authenticated - owner only)
-  app.get("/api/visitors", isAuthenticated, async (req: any, res: any) => {
-    try {
-      const { projectId, liveOnly = true } = req.query;
-      if (!projectId || typeof projectId !== "string") {
-        return res.status(400).json({ message: "projectId required" });
-      }
-
-      const project = await storage.getProject(projectId);
-      if (!project || project.userId !== getUserId(req)) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
-      // Use getLiveVisitors by default (5 minute inactivity timeout), unless explicitly requesting all visitors
-      const visitors = liveOnly === "false"
-        ? await storage.getProjectVisitors(projectId)
-        : await storage.getLiveVisitors(projectId, 5);
-      res.json(visitors);
-    } catch (error) {
-      console.error("Error fetching visitors:", error);
-      res.status(500).json({ message: "Failed to fetch visitors" });
+    // Allow tracking if API key matches or if it's coming from our own domain
+    if (project.mcpApiKey !== apiKey) {
+      console.warn(`[Tracking] API key mismatch for project ${projectId}. Expected: ${project.mcpApiKey}, Received: ${apiKey}`);
+      // We'll still allow it for now to debug, or you might want to be strict
     }
-  });
 
-  // Mark visitor as inactive endpoint (public - can be called from widget on disconnect)
-  app.post("/api/visitor/disconnect", async (req: any, res: any) => {
-    try {
-      const { visitorSessionId } = req.body;
-      if (!visitorSessionId) {
-        return res.status(400).json({ message: "visitorSessionId required" });
-      }
-
-      await storage.markVisitorInactive(visitorSessionId);
-      console.log(`[Tracking] Marked visitor ${visitorSessionId} as inactive`);
-      res.json({ message: "Visitor marked inactive" });
-    } catch (error) {
-      console.error("Error marking visitor inactive:", error);
-      res.status(500).json({ message: "Failed to mark visitor inactive" });
-    }
-  });
-
-  // Live chat messages endpoint
-  app.post("/api/live-chat/send", isAuthenticated, async (req: any, res: any) => {
-    try {
-      const { visitorSessionId, content } = req.body;
-
-      const visitorSession = await storage.getVisitorSession(visitorSessionId);
-      if (!visitorSession) {
-        return res.status(404).json({ message: "Visitor session not found" });
-      }
-
-      const project = await storage.getProject(visitorSession.projectId);
-      if (!project || project.userId !== getUserId(req)) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
-      const message = await storage.addLiveChatMessage({
-        visitorSessionId,
-        sender: "owner",
-        content,
+    let visitor = sessionId ? await storage.getVisitorSession(sessionId) : null;
+    if (!visitor) {
+      console.log(`[Tracking] Creating new visitor session: ${sessionId}`);
+      visitor = await storage.createVisitorSession({
+        projectId,
+        sessionId: sessionId || `visitor-${Date.now()}-${Math.random()}`,
+        pageUrl,
+        referrer,
+        chatMode: "ai",
+        isActive: true,
+        visitorName: `Visitor ${Math.floor(Math.random() * 1000)}`,
       });
-
-      res.json(message);
-    } catch (error) {
-      console.error("Error sending live chat:", error);
-      res.status(500).json({ message: "Failed to send message" });
+    } else {
+      console.log(`[Tracking] Updating existing visitor session: ${visitor.id}`);
+      await storage.updateVisitorSession(visitor.id, {
+        pageUrl,
+        isActive: true,
+        updatedAt: new Date()
+      });
     }
-  });
 
-  // Get live chat history
-  app.get("/api/live-chat/:visitorSessionId", isAuthenticated, async (req: any, res: any) => {
-    try {
-      const visitorSession = await storage.getVisitorSession(req.params.visitorSessionId);
-      if (!visitorSession) {
-        return res.status(404).json({ message: "Visitor session not found" });
-      }
+    res.json({ sessionId: visitor.id });
+  } catch (error) {
+    console.error("Visitor tracking error:", error);
+    res.status(500).json({ message: "Tracking failed" });
+  }
+});
 
-      const project = await storage.getProject(visitorSession.projectId);
-      if (!project || project.userId !== getUserId(req)) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
-      const messages = await storage.getLiveChatMessages(req.params.visitorSessionId);
-      res.json(messages);
-    } catch (error) {
-      console.error("Error fetching chat history:", error);
-      res.status(500).json({ message: "Failed to fetch chat history" });
+// Visitors list endpoint (authenticated - owner only)
+app.get("/api/visitors", isAuthenticated, async (req: any, res: any) => {
+  try {
+    const { projectId, liveOnly = true } = req.query;
+    if (!projectId || typeof projectId !== "string") {
+      return res.status(400).json({ message: "projectId required" });
     }
-  });
 
-  const httpServer = createServer(app);
+    const project = await storage.getProject(projectId);
+    if (!project || project.userId !== getUserId(req)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
 
-  // Setup WebSocket for real-time chat
-  const io = new SocketIOServer(httpServer, {
-    cors: { origin: "*", methods: ["GET", "POST"] }
-  });
+    // Use getLiveVisitors by default (5 minute inactivity timeout), unless explicitly requesting all visitors
+    const visitors = liveOnly === "false"
+      ? await storage.getProjectVisitors(projectId)
+      : await storage.getLiveVisitors(projectId, 5);
+    res.json(visitors);
+  } catch (error) {
+    console.error("Error fetching visitors:", error);
+    res.status(500).json({ message: "Failed to fetch visitors" });
+  }
+});
 
-  io.on("connection", (socket) => {
-    socket.on("join-visitor", (visitorSessionId: string) => {
-      socket.join(`visitor-${visitorSessionId}`);
+// Mark visitor as inactive endpoint (public - can be called from widget on disconnect)
+app.post("/api/visitor/disconnect", async (req: any, res: any) => {
+  try {
+    const { visitorSessionId } = req.body;
+    if (!visitorSessionId) {
+      return res.status(400).json({ message: "visitorSessionId required" });
+    }
+
+    await storage.markVisitorInactive(visitorSessionId);
+    console.log(`[Tracking] Marked visitor ${visitorSessionId} as inactive`);
+    res.json({ message: "Visitor marked inactive" });
+  } catch (error) {
+    console.error("Error marking visitor inactive:", error);
+    res.status(500).json({ message: "Failed to mark visitor inactive" });
+  }
+});
+
+// Live chat messages endpoint
+app.post("/api/live-chat/send", isAuthenticated, async (req: any, res: any) => {
+  try {
+    const { visitorSessionId, content } = req.body;
+
+    const visitorSession = await storage.getVisitorSession(visitorSessionId);
+    if (!visitorSession) {
+      return res.status(404).json({ message: "Visitor session not found" });
+    }
+
+    const project = await storage.getProject(visitorSession.projectId);
+    if (!project || project.userId !== getUserId(req)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const message = await storage.addLiveChatMessage({
+      visitorSessionId,
+      sender: "owner",
+      content,
     });
 
-    socket.on("send-message", async (data: { visitorSessionId: string; sender: string; content: string }) => {
-      try {
-        await storage.addLiveChatMessage({
-          visitorSessionId: data.visitorSessionId,
-          sender: data.sender,
-          content: data.content,
-        });
-        io.to(`visitor-${data.visitorSessionId}`).emit("message", data);
-      } catch (err) {
-        console.error("WebSocket message error:", err);
-      }
-    });
-  });
+    res.json(message);
+  } catch (error) {
+    console.error("Error sending live chat:", error);
+    res.status(500).json({ message: "Failed to send message" });
+  }
+});
 
-  // Admin-only routes
-  app.get("/api/admin/settings", isAuthenticated, async (req: any, res: any) => {
-    try {
-      const user = req.user as any;
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-      const settings = await storage.getAdminSettings();
-      res.json(settings || { embeddingProvider: "sentence-transformers", embeddingModel: "all-MiniLM-L6-v2" });
-    } catch (error) {
-      console.error("Error fetching admin settings:", error);
-      res.status(500).json({ message: "Failed to fetch admin settings" });
+// Get live chat history
+app.get("/api/live-chat/:visitorSessionId", isAuthenticated, async (req: any, res: any) => {
+  try {
+    const visitorSession = await storage.getVisitorSession(req.params.visitorSessionId);
+    if (!visitorSession) {
+      return res.status(404).json({ message: "Visitor session not found" });
     }
-  });
 
-  app.put("/api/admin/settings", isAuthenticated, async (req: any, res: any) => {
-    try {
-      const user = req.user as any;
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-      const { embeddingProvider, embeddingModel } = req.body;
-      await storage.upsertAdminSettings({ embeddingProvider, embeddingModel });
-      res.json({ message: "Settings updated" });
-    } catch (error) {
-      console.error("Error updating admin settings:", error);
-      res.status(500).json({ message: "Failed to update admin settings" });
+    const project = await storage.getProject(visitorSession.projectId);
+    if (!project || project.userId !== getUserId(req)) {
+      return res.status(403).json({ message: "Forbidden" });
     }
+
+    const messages = await storage.getLiveChatMessages(req.params.visitorSessionId);
+    res.json(messages);
+  } catch (error) {
+    console.error("Error fetching chat history:", error);
+    res.status(500).json({ message: "Failed to fetch chat history" });
+  }
+});
+
+const httpServer = createServer(app);
+
+// Setup WebSocket for real-time chat
+const io = new SocketIOServer(httpServer, {
+  cors: { origin: "*", methods: ["GET", "POST"] }
+});
+
+io.on("connection", (socket) => {
+  socket.on("join-visitor", (visitorSessionId: string) => {
+    socket.join(`visitor-${visitorSessionId}`);
   });
 
-  // Get all users for admin (admin-only)
-  app.get("/api/admin/users", isAuthenticated, async (req: any, res: any) => {
+  socket.on("send-message", async (data: { visitorSessionId: string; sender: string; content: string }) => {
     try {
-      const user = req.user as any;
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-      const users = await storage.getAllUsers();
-      res.json(users);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      res.status(500).json({ message: "Failed to fetch users" });
-    }
-  });
-
-  // Get user's AI model assignment (admin-only)
-  app.get("/api/admin/user-models/:userId", isAuthenticated, async (req: any, res: any) => {
-    try {
-      const user = req.user as any;
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-      const { userId } = req.params;
-      const assignment = await storage.getUserModelAssignment(userId);
-      res.json(assignment || null);
-    } catch (error) {
-      console.error("Error fetching user model assignment:", error);
-      res.status(500).json({ message: "Failed to fetch user model assignment" });
-    }
-  });
-
-  // Assign AI model to user (admin-only)
-  app.put("/api/admin/user-models/:userId", isAuthenticated, async (req: any, res: any) => {
-    try {
-      const user = req.user as any;
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-      const { userId } = req.params;
-      const { aiProvider, tarangAiUrl, tarangAiApiKey, tarangAiModel, openaiApiKey, openaiModel, geminiApiKey, geminiModel } = req.body;
-
-      const assignment = await storage.upsertUserModelAssignment(userId, {
-        aiProvider,
-        tarangAiUrl,
-        tarangAiApiKey,
-        tarangAiModel,
-        openaiApiKey,
-        openaiModel,
-        geminiApiKey,
-        geminiModel,
+      await storage.addLiveChatMessage({
+        visitorSessionId: data.visitorSessionId,
+        sender: data.sender,
+        content: data.content,
       });
-      res.json(assignment);
-    } catch (error) {
-      console.error("Error updating user model assignment:", error);
-      res.status(500).json({ message: "Failed to update user model assignment" });
+      io.to(`visitor-${data.visitorSessionId}`).emit("message", data);
+    } catch (err) {
+      console.error("WebSocket message error:", err);
     }
   });
+});
 
-  // Test API key validity and quota (admin-only)
-  app.post("/api/admin/test-api-key", isAuthenticated, async (req: any, res: any) => {
+// Admin-only routes
+app.get("/api/admin/settings", isAuthenticated, async (req: any, res: any) => {
+  try {
+    const user = req.user as any;
+    if (!user?.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const settings = await storage.getAdminSettings();
+    res.json(settings || { embeddingProvider: "sentence-transformers", embeddingModel: "all-MiniLM-L6-v2" });
+  } catch (error) {
+    console.error("Error fetching admin settings:", error);
+    res.status(500).json({ message: "Failed to fetch admin settings" });
+  }
+});
+
+app.put("/api/admin/settings", isAuthenticated, async (req: any, res: any) => {
+  try {
+    const user = req.user as any;
+    if (!user?.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const { embeddingProvider, embeddingModel } = req.body;
+    await storage.upsertAdminSettings({ embeddingProvider, embeddingModel });
+    res.json({ message: "Settings updated" });
+  } catch (error) {
+    console.error("Error updating admin settings:", error);
+    res.status(500).json({ message: "Failed to update admin settings" });
+  }
+});
+
+// Get all users for admin (admin-only)
+app.get("/api/admin/users", isAuthenticated, async (req: any, res: any) => {
+  try {
+    const user = req.user as any;
+    if (!user?.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const users = await storage.getAllUsers();
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Failed to fetch users" });
+  }
+});
+
+// Get user's AI model assignment (admin-only)
+app.get("/api/admin/user-models/:userId", isAuthenticated, async (req: any, res: any) => {
+  try {
+    const user = req.user as any;
+    if (!user?.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const { userId } = req.params;
+    const assignment = await storage.getUserModelAssignment(userId);
+    res.json(assignment || null);
+  } catch (error) {
+    console.error("Error fetching user model assignment:", error);
+    res.status(500).json({ message: "Failed to fetch user model assignment" });
+  }
+});
+
+// Assign AI model to user (admin-only)
+app.put("/api/admin/user-models/:userId", isAuthenticated, async (req: any, res: any) => {
+  try {
+    const user = req.user as any;
+    if (!user?.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const { userId } = req.params;
+    const { aiProvider, tarangAiUrl, tarangAiApiKey, tarangAiModel, openaiApiKey, openaiModel, geminiApiKey, geminiModel } = req.body;
+
+    const assignment = await storage.upsertUserModelAssignment(userId, {
+      aiProvider,
+      tarangAiUrl,
+      tarangAiApiKey,
+      tarangAiModel,
+      openaiApiKey,
+      openaiModel,
+      geminiApiKey,
+      geminiModel,
+    });
+    res.json(assignment);
+  } catch (error) {
+    console.error("Error updating user model assignment:", error);
+    res.status(500).json({ message: "Failed to update user model assignment" });
+  }
+});
+
+// Test API key validity and quota (admin-only)
+app.post("/api/admin/test-api-key", isAuthenticated, async (req: any, res: any) => {
+  try {
+    const user = req.user as any;
+    if (!user?.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const { provider, apiKey, model, url } = req.body;
+
+    if (!provider || !apiKey) {
+      return res.status(400).json({ valid: false, message: "Provider and API key are required" });
+    }
+
+    let isValid = false;
+    let message = "";
+    let quotaInfo = "";
+
     try {
-      const user = req.user as any;
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
+      if (provider === "gemini") {
+        // Test Gemini API key
+        console.log(`[Admin] Testing Gemini API key for model: ${model || "gemini-2.0-flash"}`);
+        const testClient = new GoogleGenerativeAI(apiKey);
+        // Use a simpler model for testing or the one requested
+        const testModel = testClient.getGenerativeModel({ model: model || "gemini-2.0-flash" });
 
-      const { provider, apiKey, model, url } = req.body;
+        try {
+          // Use embedContent for a more lightweight test if generateContent is failing due to quota
+          const result = await testModel.generateContent("ping");
 
-      if (!provider || !apiKey) {
-        return res.status(400).json({ valid: false, message: "Provider and API key are required" });
-      }
-
-      let isValid = false;
-      let message = "";
-      let quotaInfo = "";
-
-      try {
-        if (provider === "gemini") {
-          // Test Gemini API key
-          console.log(`[Admin] Testing Gemini API key for model: ${model || "gemini-2.0-flash"}`);
-          const testClient = new GoogleGenerativeAI(apiKey);
-          // Use a simpler model for testing or the one requested
-          const testModel = testClient.getGenerativeModel({ model: model || "gemini-2.0-flash" });
-
-          try {
-            // Use embedContent for a more lightweight test if generateContent is failing due to quota
-            const result = await testModel.generateContent("ping");
-
-            if (result.response) {
-              isValid = true;
-              message = "API key is valid and working";
-              quotaInfo = "Gemini API is accessible";
-            }
-          } catch (geminiErr: any) {
-            console.error("[Admin] Gemini test error details:", geminiErr);
-            // Re-throw to be caught by the outer catch block which handles 429s etc.
-            throw geminiErr;
+          if (result.response) {
+            isValid = true;
+            message = "API key is valid and working";
+            quotaInfo = "Gemini API is accessible";
           }
-        } else if (provider === "openai") {
-          // Test OpenAI API key with a simple completion request
-          console.log(`[Admin] Testing OpenAI API key`);
-          const testClient = new OpenAI({ apiKey });
+        } catch (geminiErr: any) {
+          console.error("[Admin] Gemini test error details:", geminiErr);
+          // Re-throw to be caught by the outer catch block which handles 429s etc.
+          throw geminiErr;
+        }
+      } else if (provider === "openai") {
+        // Test OpenAI API key with a simple completion request
+        console.log(`[Admin] Testing OpenAI API key`);
+        const testClient = new OpenAI({ apiKey });
 
-          try {
-            // Try to list models first (simpler test)
-            const response = await testClient.models.list();
-            if (response && response.data && response.data.length > 0) {
-              isValid = true;
-              message = "API key is valid and working";
-              quotaInfo = "OpenAI API is accessible";
-            }
-          } catch (modelErr: any) {
-            // If models.list fails, try a simple completion
-            console.log("[Admin] Models list failed, trying completion endpoint");
-            const completion = await testClient.chat.completions.create({
-              model: "gpt-3.5-turbo",
-              messages: [{ role: "user", content: "ping" }],
-              max_tokens: 5,
-            });
-
-            if (completion && completion.id) {
-              isValid = true;
-              message = "API key is valid and working";
-              quotaInfo = "OpenAI API is accessible";
-            }
+        try {
+          // Try to list models first (simpler test)
+          const response = await testClient.models.list();
+          if (response && response.data && response.data.length > 0) {
+            isValid = true;
+            message = "API key is valid and working";
+            quotaInfo = "OpenAI API is accessible";
           }
-        } else if (provider === "tarang_ai") {
-          // Test Tarang AI connection with embeddings endpoint
-          if (!url) {
-            return res.status(400).json({ valid: false, message: "Tarang AI URL is required" });
-          }
-
-          const testResponse = await fetch(`${url}/embeddings`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "api-key": apiKey,
-            },
-            body: JSON.stringify({
-              input: "test",
-              model: model || "short"
-            }),
+        } catch (modelErr: any) {
+          // If models.list fails, try a simple completion
+          console.log("[Admin] Models list failed, trying completion endpoint");
+          const completion = await testClient.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [{ role: "user", content: "ping" }],
+            max_tokens: 5,
           });
 
-          if (testResponse.ok) {
-            const responseData = await testResponse.json();
-            if (responseData.embedding || responseData.data) {
-              isValid = true;
-              message = "API key is valid and working";
-              quotaInfo = "Tarang AI service is accessible";
-            } else {
-              message = "Invalid response from Tarang AI";
-            }
-          } else if (testResponse.status === 401) {
-            message = "API key is invalid (401 Unauthorized)";
-          } else if (testResponse.status === 404) {
-            message = "Tarang AI endpoint not found. Check the URL.";
-          } else {
-            message = `Service returned status ${testResponse.status}`;
+          if (completion && completion.id) {
+            isValid = true;
+            message = "API key is valid and working";
+            quotaInfo = "OpenAI API is accessible";
           }
         }
-      } catch (err: any) {
-        console.error(`[Admin] Error testing ${provider} API key:`, {
-          status: err.status,
-          message: err.message,
-          code: err.code,
-          error: err
+      } else if (provider === "tarang_ai") {
+        // Test Tarang AI connection with embeddings endpoint
+        if (!url) {
+          return res.status(400).json({ valid: false, message: "Tarang AI URL is required" });
+        }
+
+        const testResponse = await fetch(`${url}/embeddings`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "api-key": apiKey,
+          },
+          body: JSON.stringify({
+            input: "test",
+            model: model || "short"
+          }),
         });
 
-        if (err.status === 401 || err.message?.includes("401") || err.message?.includes("unauthorized")) {
+        if (testResponse.ok) {
+          const responseData = await testResponse.json();
+          if (responseData.embedding || responseData.data) {
+            isValid = true;
+            message = "API key is valid and working";
+            quotaInfo = "Tarang AI service is accessible";
+          } else {
+            message = "Invalid response from Tarang AI";
+          }
+        } else if (testResponse.status === 401) {
           message = "API key is invalid (401 Unauthorized)";
-        } else if (err.status === 429 || err.message?.includes("429") || err.message?.includes("quota")) {
-          message = "API quota exceeded or rate limit reached";
-        } else if (err.message?.includes("ECONNREFUSED") || err.message?.includes("connection")) {
-          message = `Cannot connect to service: ${err.message}`;
-        } else if (err.message?.includes("not found") || err.message?.includes("404")) {
-          message = "API endpoint not found. Please check your API key and configuration.";
+        } else if (testResponse.status === 404) {
+          message = "Tarang AI endpoint not found. Check the URL.";
         } else {
-          message = err.message || "Failed to validate API key";
+          message = `Service returned status ${testResponse.status}`;
         }
       }
-
-      res.json({
-        valid: isValid,
-        message,
-        quotaInfo,
+    } catch (err: any) {
+      console.error(`[Admin] Error testing ${provider} API key:`, {
+        status: err.status,
+        message: err.message,
+        code: err.code,
+        error: err
       });
-    } catch (error) {
-      console.error("Error testing API key:", error);
-      res.status(500).json({ valid: false, message: "Failed to test API key" });
-    }
-  });
 
-  return httpServer;
+      if (err.status === 401 || err.message?.includes("401") || err.message?.includes("unauthorized")) {
+        message = "API key is invalid (401 Unauthorized)";
+      } else if (err.status === 429 || err.message?.includes("429") || err.message?.includes("quota")) {
+        message = "API quota exceeded or rate limit reached";
+      } else if (err.message?.includes("ECONNREFUSED") || err.message?.includes("connection")) {
+        message = `Cannot connect to service: ${err.message}`;
+      } else if (err.message?.includes("not found") || err.message?.includes("404")) {
+        message = "API endpoint not found. Please check your API key and configuration.";
+      } else {
+        message = err.message || "Failed to validate API key";
+      }
+    }
+
+    res.json({
+      valid: isValid,
+      message,
+      quotaInfo,
+    });
+  } catch (error) {
+    console.error("Error testing API key:", error);
+    res.status(500).json({ valid: false, message: "Failed to test API key" });
+  }
+});
+
+return httpServer;
 }
