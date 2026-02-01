@@ -22,35 +22,7 @@
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
-  <!-- Knowledge AI Chatbot Widget -->
-  <script>
-    (function () {
-      // Track visitor session
-      var sessionId = localStorage.getItem('kabot-session') || 'visitor-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem('kabot-session', sessionId);
 
-      // Send visitor tracking
-      fetch('http://localhost:5000/api/visitor/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId: 'ee1e1212-af34-4b77-8fe4-b3bf38b85ffa',
-          apiKey: '445f6036-a85d-4587-82fc-fe2b12faf008',
-          sessionId: sessionId,
-          pageUrl: window.location.href,
-          referrer: document.referrer
-        })
-      }).catch(e => console.log('Visitor tracking:', e));
-
-      var script = document.createElement('script');
-      script.src = 'http://localhost:5000/widget.js';
-      script.async = true;
-      script.dataset.projectId = 'ee1e1212-af34-4b77-8fe4-b3bf38b85ffa';
-      script.dataset.apiKey = '445f6036-a85d-4587-82fc-fe2b12faf008';
-      script.dataset.sessionId = sessionId;
-      document.head.appendChild(script);
-    })();
-  </script>
 </body>
 
 </html>
