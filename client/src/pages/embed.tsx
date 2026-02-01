@@ -11,8 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Code, 
+import {
+  Code,
   Copy,
   CheckCircle,
   ExternalLink,
@@ -33,34 +33,31 @@ export default function EmbedScript() {
   const selectedProjectData = projects?.find((p) => p.id === selectedProject);
 
   const getEmbedScript = () => {
-    if (!selectedProject || !selectedProjectData) return "";
+    if (!selectedProject) return "";
     const baseUrl = window.location.origin;
     return `<!-- Knowledge AI Chatbot Widget -->
 <script>
   (function() {
-    // Track visitor session
+    // Create or retrieve visitor session ID
     var sessionId = localStorage.getItem('kabot-session') || 'visitor-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
     localStorage.setItem('kabot-session', sessionId);
     
-    // Send visitor tracking
+    // Track visitor session (no API key needed - JWT handled by widget)
     fetch('${baseUrl}/api/visitor/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         projectId: '${selectedProject}',
-        apiKey: '${selectedProjectData.mcpApiKey}',
         sessionId: sessionId,
         pageUrl: window.location.href,
         referrer: document.referrer
       })
-    }).catch(e => console.log('Visitor tracking:', e));
+    }).catch(e => console.debug('Visitor tracking:', e));
     
+    // Load widget script
     var script = document.createElement('script');
-    script.src = '${baseUrl}/widget.js';
+    script.src = '${baseUrl}/widget.js?projectId=${selectedProject}';
     script.async = true;
-    script.dataset.projectId = '${selectedProject}';
-    script.dataset.apiKey = '${selectedProjectData.mcpApiKey}';
-    script.dataset.sessionId = sessionId;
     document.head.appendChild(script);
   })();
 </script>`;
@@ -69,7 +66,7 @@ export default function EmbedScript() {
   const handleCopy = async () => {
     const script = getEmbedScript();
     if (!script) return;
-    
+
     try {
       await navigator.clipboard.writeText(script);
       setCopied(true);

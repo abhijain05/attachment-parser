@@ -30,7 +30,7 @@
       localStorage.setItem('kabot-session', sessionId);
 
       // Send visitor tracking
-      fetch('http://localhost:5001/api/visitor/track', {
+      fetch('http://localhost:5000/api/visitor/track', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
