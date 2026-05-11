@@ -6,7 +6,7 @@ import { setupAuth, isAuthenticated, generateWidgetToken, verifyWidgetToken, val
 import { z } from "zod";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import * as pdfParse from "pdf-parse";
+import pdfParse from "pdf-parse";
 import JSZip from "jszip";
 import { Server as SocketIOServer } from "socket.io";
 
@@ -16,6 +16,27 @@ function cosineSimilarity(a: number[], b: number[]): number {
   const magA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
   const magB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
   return magA && magB ? dotProduct / (magA * magB) : 0;
+}
+
+// Normalize embedding vector to 768 dimensions
+function normalizeEmbedding(embedding: number[]): number[] {
+  const targetDim = 768;
+
+  if (embedding.length === targetDim) {
+    return embedding;
+  }
+
+  if (embedding.length === 0) {
+    return new Array(targetDim).fill(0);
+  }
+
+  if (embedding.length < targetDim) {
+    // Pad with zeros
+    return [...embedding, ...new Array(targetDim - embedding.length).fill(0)];
+  }
+
+  // Truncate if longer
+  return embedding.slice(0, targetDim);
 }
 
 // Sentence Transformers embedding (local)
@@ -302,7 +323,7 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
 
   if (ext === "pdf") {
     try {
-      const data = await pdfParse.default(buffer);
+      const data = await pdfParse(buffer);
       let text = data.text || "";
 
       if (!text.trim()) {
@@ -508,7 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 documentId: doc.id,
                 chunkIndex: index,
                 content: text,
-                embedding: embedding.length > 0 ? embedding : new Array(768).fill(0), // Default to zero vector if no embedding
+                embedding: normalizeEmbedding(embedding), // Normalize to 768 dimensions
                 metadata: { provider: embeddingProvider, fileName: filename },
               };
             })
@@ -671,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 documentId: doc.id,
                 chunkIndex: index,
                 content: chunk.content,
-                embedding: embedding.length > 0 ? embedding : new Array(768).fill(0),
+                embedding: normalizeEmbedding(embedding), // Normalize to 768 dimensions
                 metadata: { provider: embeddingProvider, fileName: doc.name },
               };
             })
