@@ -6,7 +6,7 @@ import { setupAuth, isAuthenticated, generateWidgetToken, verifyWidgetToken, val
 import { z } from "zod";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import pdfParse from "pdf-parse";
+import * as pdf from "pdf-parse/node";
 import JSZip from "jszip";
 import { Server as SocketIOServer } from "socket.io";
 
@@ -323,7 +323,7 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
 
   if (ext === "pdf") {
     try {
-      const data = await pdfParse(buffer);
+      const data = await pdf.default(buffer);
       let text = data.text || "";
 
       if (!text.trim()) {
