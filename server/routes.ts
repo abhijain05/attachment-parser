@@ -6,7 +6,7 @@ import { setupAuth, isAuthenticated, generateWidgetToken, verifyWidgetToken, val
 import { z } from "zod";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import * as pdf from "pdf-parse/node";
+// pdf-parse imported dynamically to avoid ESM/CJS interop issues
 import JSZip from "jszip";
 import { Server as SocketIOServer } from "socket.io";
 
@@ -323,7 +323,9 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
 
   if (ext === "pdf") {
     try {
-      const data = await pdf.default(buffer);
+      const pdfModule = await import("pdf-parse");
+      const pdfParse = (pdfModule as any).default || pdfModule;
+      const data = await pdfParse(buffer);
       let text = data.text || "";
 
       if (!text.trim()) {
