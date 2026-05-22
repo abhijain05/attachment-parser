@@ -1,14 +1,18 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import { createRequire } from "module";
 import multer from "multer";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, generateWidgetToken, verifyWidgetToken, validateDomain } from "./auth";
 import { z } from "zod";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-// pdf-parse imported dynamically to avoid ESM/CJS interop issues
 import JSZip from "jszip";
+
 import { Server as SocketIOServer } from "socket.io";
+
+const _require = createRequire(import.meta.url);
+const { PDFParse } = _require("pdf-parse");
 
 // Helper function for cosine similarity
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -85,7 +89,7 @@ async function getEmbedding(
 
     if (provider === "gemini" && (config?.geminiClient || gemini)) {
       const client = config?.geminiClient || gemini;
-      const model = client!.getGenerativeModel({ model: "embedding-001" });
+      const model = client!.getGenerativeModel({ model: "text-embedding-004" });
       const result = await model.embedContent(text);
       const embedding = result.embedding?.values || [];
       return Array.isArray(embedding) ? embedding : [];
@@ -323,10 +327,9 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
 
   if (ext === "pdf") {
     try {
-      const pdfModule = await import("pdf-parse");
-      const pdfParse = (pdfModule as any).default || pdfModule;
-      const data = await pdfParse(buffer);
-      let text = data.text || "";
+      const parser = new PDFParse({ data: new Uint8Array(buffer) });
+      const result = await parser.getText();
+      let text = (result as any).text || (result as any).pages?.map((p: any) => p.text).join("\n") || "";
 
       if (!text.trim()) {
         console.warn("PDF-parse extracted no text, trying fallback:", filename);

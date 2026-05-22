@@ -1,0 +1,21 @@
+fa6190","projectId":"ee1e1212-af34-4b77-8fe4-b3bf38b85ffa","name":"ilovepdf_merged (2)-1-4.pdf","type":"pdf","content":"PDF document (extraction error)","metadata":{"size":60314,"mimeType":"application/pdf"},"status":"ready","createdAt":"2026-05-22T14:42:26.972Z","updatedAt":"2026-05-22T14:42:28.731Z"}]
+[Chat] Using embedding provider: gemini (from stored embeddings)
+[Chat] Using AI provider: gemini
+[Chat] Intent detection: "how many chapter are there?..." -> needs_knowledge_base: true
+Error generating gemini embedding: GoogleGenerativeAIFetchError: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent: [404 Not Found] models/embedding-001 is not found for API version v1beta, or is not supported for embedContent. Call ModelService.ListModels to see the list of available models and their supported methods.
+    at handleResponseNotOk (file:///home/runner/workspace/node_modules/@google/generative-ai/dist/index.mjs:432:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async makeRequest (file:///home/runner/workspace/node_modules/@google/generative-ai/dist/index.mjs:401:9)
+    at async embedContent (file:///home/runner/workspace/node_modules/@google/generative-ai/dist/index.mjs:1313:22)
+    at async getEmbedding (/home/runner/workspace/server/routes.ts:89:22)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:949:28) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+[Chat] Intent detection result: needsKnowledge=true
+[Chat] Found 0 relevant chunks for query: "how many chapter are there?"
+[Chat] Sending general chat message to Gemini
+[Chat] Response sent from gemini (40 chars)
+[Chat] Sending response: { messageLength: 40, hasSources: false, historyLength: 2 }
+2:42:55 PM [express] POST /api/chat 200 in 7164ms :: {"sessionId":"7338ae55-9c04-4b80-87d7-e4d1c32a16bf","message":"Hmm, I'm not sure! What are you reading?","model":"gemini","history":[{"role":"user","content":"how many chapter are there?","sources":null},{"role":"assistant","content":"Hmm, I'm not sure! What are you reading?","sources":null}]}
